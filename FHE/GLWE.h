@@ -41,11 +41,11 @@ public:
   }
 
   void print() {
-    std::cout << "q = " << q << std::endl;
-    std::cout << "d = " << d << std::endl;
-    std::cout << "n = " << n << std::endl;
-    std::cout << "N = " << N << std::endl;
-    std::cout << "B = " << B << std::endl;
+    std::cout << "(q=" << q << ", ";
+    std::cout << "d=" << d << ", ";
+    std::cout << "n=" << n << ", ";
+    std::cout << "N=" << N << ", ";
+    std::cout << "B=" << B << ")";
   }
 };
 

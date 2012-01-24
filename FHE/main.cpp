@@ -548,6 +548,8 @@ private:
 
   bool test_FHE_One_Add(GLWE_Type type, FHE_Operation operation_type) {
     FHE fhe;
+
+    for (int i = 0; i < 30; i++) {
     FHE_Params params = fhe.Setup(2, 2, type);
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
     
@@ -567,6 +569,12 @@ private:
     }
      
     FHE_Cipher_Text c1 = fhe.Encrypt(params, &sk_pk.second, message1), c2 = fhe.Encrypt(params, &sk_pk.second, message2);
+    R_Ring_Number m1 = c1.Decrypt(params, sk_pk.first), m2 = c2.Decrypt(params, sk_pk.first);
+    if (m1 != message1 || m2 != message2) {
+      std::cout << "Initial decryption failed" << std::endl;
+      FAIL();
+      return false;
+    }
     FHE_Cipher_Text res_c;
     if (operation_type == FHE_Addition) {
       res_c = c1 + c2;
@@ -576,8 +584,75 @@ private:
     
     R_Ring_Number decoded_message = res_c.Decrypt(params, sk_pk.first);
     if (message3 != decoded_message) {
+      std::cout << "attempt #" << i << std::endl;
+
+      std::cout << "message1 * message2 = ";
+      message1.print();
+      std::cout << " * ";
+      message2.print();
+      std::cout << std::endl;
+      
+      std::cout << "message = ";
+      message3.print();
+      std::cout << std::endl;
+
+      std::cout << "decoded_message = ";
+      decoded_message.print();
+      std::cout << std::endl;
+
+      std::cout << "c1 = ";
+      c1.print();
+      std::cout << std::endl;
+
+      std::cout << "c2 = ";
+      c2.print();
+      std::cout << std::endl;
+
+      std::cout << "final amount of noise = mod " << res_c.Get_Cipher().first.Get_q() << " = ";
+      res_c.Get_Cipher().first.Dot_Product(sk_pk.first[res_c.Get_Cipher().second]).print();
+      std::cout << std::endl;
+
+      std::cout << "original amount of noise = <c1, s1> mod " << c1.Get_Cipher().first.Get_q() << " = ";
+      c1.Get_Cipher().first.Dot_Product(sk_pk.first[c1.Get_Cipher().second]).print();
+      std::cout << std::endl;
+
+      std::cout << "original amount of noise = <c2, s2> mod " << c2.Get_Cipher().first.Get_q() << " = ";
+      c2.Get_Cipher().first.Dot_Product(sk_pk.first[c2.Get_Cipher().second]).print();
+      std::cout << std::endl;
+
+      std::cout << "Modules ladder = (";
+      for (int j = 0; j < params.size(); j++) {
+	if (j != 0) { std::cout << ", "; }
+	params[j].print();
+      }
+      std::cout << ")" << std::endl;
+
+      std::cout << "Current module = " << params[res_c.Get_Cipher().second].q << std::endl;
+
+
+      R_Ring_Vector sk_tensored = sk_pk.first[c1.Get_Cipher().second].Tensor_Product(sk_pk.first[c1.Get_Cipher().second]);
+      int dimension = c1.Get_Cipher().first.Get_Dimension();
+      int new_dimension = (dimension * (dimension + 1)) / 2;
+      R_Ring_Vector c3(c1.Get_Cipher().first.Get_q(), c1.Get_Cipher().first.Get_d(), new_dimension);
+      int index = 0;
+      for (int i = 0; i < dimension; i++) {
+	c3[index++] = c1.Get_Cipher().first[i] * c2.Get_Cipher().first[i];
+	for (int j = i + 1; j < dimension; j++) {
+	  c3[index++] = c1.Get_Cipher().first[i] * c2.Get_Cipher().first[j] + c1.Get_Cipher().first[j] * c2.Get_Cipher().first[i];
+	}
+      }
+
+      std::cout << "<sk_tensored, c3> mod " << c1.Get_Cipher().first.Get_q() << " = <";
+      sk_tensored.print();
+      std::cout << ", ";
+      c3.print();
+      std::cout << "> = ";
+      sk_tensored.Dot_Product(c3).print();
+      std::cout << std::endl;
+
       FAIL();
       return false;
+    }
     }
     PASS();
     return true;

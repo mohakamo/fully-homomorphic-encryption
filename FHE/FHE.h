@@ -55,7 +55,11 @@ class FHE_Cipher_Text {
   }
 
   void Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *pk);
-  void print(void) {}
+  void print(void) {
+    std::cout << "(";
+    my_cipher.first.print();
+    std::cout << ", " << my_cipher.second << ")";
+  }
   // debugging functions
   R_Ring_Number Get_Noise(FHE_Params &params, FHE_Secret_Key_Type &sk) {
     int j = my_cipher.second;
@@ -139,7 +143,7 @@ class FHE {
     
     std::vector<GLWE_Params> params(L + 1);
     for (int i = 0; i <= L; i++) {
-      params[i] = E.Setup(lambda, q_size + (i + 1) * mu, b); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
+      params[i] = E.Setup(lambda, q_size + i * mu, b); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
     }
     for (int i = 0; i < L; i++) {
       params[i].d = params[L].d;

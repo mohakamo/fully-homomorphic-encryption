@@ -81,15 +81,20 @@ Pair<R_Ring_Vector, int> FHE_Cipher_Text::Add(Pair<R_Ring_Vector, int> &c1, Pair
 Pair<R_Ring_Vector, int> FHE_Cipher_Text::Mult(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2) {
   int L = ((*my_pk).size() - 1) / 2;
   Update_To_Same_Level(c1, c2);
+  assert(c1.second == c2.second);
   assert(c1.first.Get_Dimension() == c2.first.Get_Dimension());
-  int new_dimension = (c1.first.Get_Dimension() * (c1.first.Get_Dimension() + 1)) / 2;
+  assert(c1.first.Get_q() == c2.first.Get_q());
+  int dimension = c1.first.Get_Dimension();
+  int new_dimension = (dimension * (dimension + 1)) / 2;
   R_Ring_Vector c3(c1.first.Get_q(), c1.first.Get_d(), new_dimension);
   int index = 0;
-  for (int i = 0; i < c1.first.Get_Dimension(); i++) {
-    for (int j = i; j < c2.first.Get_Dimension(); j++) {
-      c3[index++] = c1.first[i] * c2.first[j] * (i == j ? 1 : 2);
+  for (int i = 0; i < dimension; i++) {
+    c3[index++] = c1.first[i] * c2.first[i];
+    for (int j = i + 1; j < dimension; j++) {
+      c3[index++] = c1.first[i] * c2.first[j] + c1.first[j] * c2.first[i];
     }
   }
+  assert(index == new_dimension);
   assert(c1.second >= 1);
   // going from c1.second level to c1.second - 1 level
   Pair<R_Ring_Vector, int> result(c3, c1.second);
