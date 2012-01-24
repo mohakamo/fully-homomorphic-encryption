@@ -25,6 +25,7 @@ class FHE_Cipher_Text {
  public:
  FHE_Cipher_Text(const Pair<R_Ring_Vector, int> &cipher, FHE_Public_Key_Type *pk) : my_cipher(Pair<R_Ring_Vector, int>(R_Ring_Vector(cipher.first), cipher.second)), my_pk(pk) {}
  FHE_Cipher_Text(const FHE_Cipher_Text &c) : my_cipher(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second), my_pk(c.my_pk) {}
+ FHE_Cipher_Text() : my_cipher(R_Ring_Vector(), 0), my_pk(NULL) {}
 
   /*  FHE_Cipher_Text& operator =(const FHE_Cipher_Text &c) {
     my_cipher = Pair<R_Ring_Vector, int>(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second);
@@ -55,6 +56,14 @@ class FHE_Cipher_Text {
 
   void Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *pk);
   void print(void) {}
+  // debugging functions
+  R_Ring_Number Get_Noise(FHE_Params &params, FHE_Secret_Key_Type &sk) {
+    int j = my_cipher.second;
+    return GLWE::Get_Noise(params[j], sk[j], my_cipher.first);
+  }
+  Pair<R_Ring_Vector, int> Get_Cipher() {
+    return my_cipher;
+  }
 };
 
 class FHE {
@@ -76,9 +85,13 @@ class FHE {
   static R_Ring_Vector Powersof2(R_Ring_Vector x, int q) {
     int noof_vectors = ceil(log2(q));
     R_Ring_Vector res_r(q, x.Get_d(), noof_vectors * x.Get_Dimension());
+    int index;
+    
     for (int i = 0; i < x.Get_Dimension(); i++) {
-      for (int p = 0; p < noof_vectors; p++) {
-	res_r[p + i * noof_vectors] = x[i] * (1 << p);
+      res_r[i * noof_vectors] = x[i];
+      for (int p = 1; p < noof_vectors; p++) {
+	index = p + i * noof_vectors;
+	res_r[index] = res_r[index - 1] * 2; // not to have overflowing
       }
     }
     return res_r;
@@ -97,7 +110,7 @@ class FHE {
   
   int Choose_mu(int lambda, int L) {
     // TODO: to be implemented
-    return 9;
+    return 2;
   }
 
   GLWE E;
@@ -118,14 +131,15 @@ class FHE {
     int d = E.Choose_d(lambda, mu, b);
     int n = E.Choose_n(lambda, mu, b);
     
-    while (q_size < 8 * sizeof(int) && ((1 << q_size) - 1) / q_size < 8 * d * (2 * n + 1) + 2) {
+    while (q_size < 8 * sizeof(int) && ((1 << q_size) - 1) / q_size < 12 * d * (2 * n + 1) + 2) {
       q_size++;
     }
-    // std::cout << "Chosen initial modul size = " << q_size << std::endl;
+    q_size++;
+    //    std::cout << "Chosen initial modul size = " << q_size << std::endl;
     
     std::vector<GLWE_Params> params(L + 1);
     for (int i = 0; i <= L; i++) {
-      params[i] = E.Setup(lambda, /*q_size +*/ (i + 1) * mu, b); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
+      params[i] = E.Setup(lambda, q_size + (i + 1) * mu, b); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
     }
     for (int i = 0; i < L; i++) {
       params[i].d = params[L].d;

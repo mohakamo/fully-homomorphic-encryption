@@ -84,9 +84,10 @@ Pair<R_Ring_Vector, int> FHE_Cipher_Text::Mult(Pair<R_Ring_Vector, int> &c1, Pai
   assert(c1.first.Get_Dimension() == c2.first.Get_Dimension());
   int new_dimension = (c1.first.Get_Dimension() * (c1.first.Get_Dimension() + 1)) / 2;
   R_Ring_Vector c3(c1.first.Get_q(), c1.first.Get_d(), new_dimension);
+  int index = 0;
   for (int i = 0; i < c1.first.Get_Dimension(); i++) {
     for (int j = i; j < c2.first.Get_Dimension(); j++) {
-      c3[i * c2.first.Get_Dimension() + j] = c1.first[i] * c2.first[j];
+      c3[index++] = c1.first[i] * c2.first[j] * (i == j ? 1 : 2);
     }
   }
   assert(c1.second >= 1);

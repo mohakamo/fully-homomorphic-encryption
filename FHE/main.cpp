@@ -1,6 +1,8 @@
 #include "FHE.h"
 #include <iostream>
 
+enum FHE_Operation {FHE_Addition = 1, FHE_Multiplication};
+
 /***
  * Tests section
  ***/
@@ -417,12 +419,74 @@ private:
       R_Ring_Number message(2, params[0].d, array_m);
       
       FHE_Cipher_Text c = fhe.Encrypt(params, &sk_pk.second, message);
+      // check initial correction
+      R_Ring_Number decoded_initial_message = c.Decrypt(params, sk_pk.first);
+      if (decoded_initial_message != message) {
+	std::cout << "Initial encryption is incorrect" << std::cout;
+	std::cout << "attempt #" << s << std::endl;
+	std::cout << "message =";
+	message.print();
+	std::cout << std::endl;
+	
+	std::cout << "decoded_initial_message =";
+	decoded_initial_message.print();
+	std::cout << std::endl;
+
+	FAIL();
+	return false;
+      }
+	
       // switch keys several times, see if we preserve correctness
       for (int t = 0; t < 1; t++) {
 	Pair<R_Ring_Vector, int> c1 = c.Copy_Cipher();
 	Pair<R_Ring_Vector, int> tensored_c1(R_Ring_Vector(c1.first.Get_q(), c1.first.Get_d(), (c1.first.Get_Dimension() * (c1.first.Get_Dimension() + 1)) / 2), c1.second);
 	for (int i = 0; i < c1.first.Get_Dimension(); i++) {
 	  tensored_c1.first[i] = c1.first[i];
+	}
+	R_Ring_Vector secret_tensored = sk_pk.first[c.Get_Cipher().second];
+	
+	secret_tensored = secret_tensored.Tensor_Product(secret_tensored);
+	R_Ring_Vector secret_tensored_prime = FHE::Bit_Decomposition(secret_tensored, secret_tensored.Get_q());
+
+	R_Ring_Vector powersof2_tensored_c1 = FHE::Powersof2(tensored_c1.first, tensored_c1.first.Get_q());
+	R_Ring_Number dot1 = tensored_c1.first.Dot_Product(secret_tensored), dot2 = powersof2_tensored_c1.Dot_Product(secret_tensored_prime);
+
+	if (dot1 != dot2) {
+	  std::cout << "attempt #" << s << " level #" << t << std::endl;
+	  assert(tensored_c1.first.Get_q() == secret_tensored.Get_q());
+
+	  std::cout << "<cipher, sk> = ";
+	  sk_pk.first[c.Get_Cipher().second].Dot_Product(c.Get_Cipher().first).print();
+	  std::cout << std::endl;
+
+	  std::cout << "s = ";
+	  sk_pk.first[c.Get_Cipher().second].print();
+	  std::cout << std::endl;
+
+	  std::cout << "s' = ";
+	  secret_tensored.print();
+	  std::cout << std::endl;
+
+	  std::cout << "<c, s'> = <";
+	  tensored_c1.first.print();
+	  std::cout << ", ";
+	  secret_tensored.print();
+	  std::cout << "> = ";
+	  dot1.print();
+	  std::cout << std::endl;
+
+	  std::cout << "<c1, s''> = <";
+	  powersof2_tensored_c1.print();
+	  std::cout << ", ";
+	  secret_tensored_prime.print();
+	  std::cout << "> = ";
+	  dot2.print();
+	  std::cout << std::endl;
+
+	  std::cout << 
+	  std::cout << "!" << std::endl;
+	  FAIL();
+	  return false;
 	}
 	
 	c.Refresh(tensored_c1, &sk_pk.second);
@@ -437,6 +501,38 @@ private:
 	  std::cout << "decoded_message =";
 	  decoded_message.print();
 	  std::cout << std::endl;
+
+	  std::cout << "Modules ladder = (";
+	  for (int i = 0; i < params.size(); i++) {
+	    if (i != 0) {
+	      std::cout << ", ";
+	    }
+	    std::cout << params[i].q;
+	  }
+	  std::cout << ")" << std::endl;
+
+	  /*	  std::cout << "secret key = ";
+	  for (int i = 0; i < sk_pk.first.size(); i++) {
+	    sk_pk.first[i].print();
+	    std::cout << std::endl;
+	  }
+
+	  std::cout << "pulic key = ";
+	  for (int i = 0; i < sk_pk.second.size(); i++) {
+	    sk_pk.second[i].print();
+	    std::cout << std::endl;
+	    }*/
+	  std::cout << "The amount of previous noise = ";
+	  c.Get_Noise(params, sk_pk.first).print();
+	  std::cout << std::endl;
+	  std::cout << "Cipher level = " << c.Get_Cipher().second << std::endl;
+	  std::cout << "Cipher module = " << c.Get_Cipher().first.Get_q() << std::endl;
+
+	  std::cout << "The amount of current noise = ";
+	  tc.Get_Noise(params, sk_pk.first).print();
+	  std::cout << std::endl;
+	  std::cout << "Cipher level = " << tc.Get_Cipher().second << std::endl;
+	  std::cout << "Cipher module = " << tc.Get_Cipher().first.Get_q() << std::endl;
 	  FAIL();
 	  return false;
 	}
@@ -450,7 +546,7 @@ private:
     return true;
   }
 
-  bool test_FHE_One_Add(GLWE_Type type) {
+  bool test_FHE_One_Add(GLWE_Type type, FHE_Operation operation_type) {
     FHE fhe;
     FHE_Params params = fhe.Setup(2, 2, type);
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
@@ -464,10 +560,19 @@ private:
     }
     
     R_Ring_Number message1(2, params[0].d, array_m[0]), message2(2, params[0].d, array_m[1]), message3(2, params[0].d);
-    message3 = message1 + message2;
+    if (operation_type == FHE_Addition) {
+      message3 = message1 + message2;
+    } else if (operation_type == FHE_Multiplication) {
+      message3 = message1 * message2;
+    }
      
     FHE_Cipher_Text c1 = fhe.Encrypt(params, &sk_pk.second, message1), c2 = fhe.Encrypt(params, &sk_pk.second, message2);
-    FHE_Cipher_Text res_c = c1 + c2;
+    FHE_Cipher_Text res_c;
+    if (operation_type == FHE_Addition) {
+      res_c = c1 + c2;
+    } else if (operation_type == FHE_Multiplication) {
+      res_c = c1 * c2;
+    }
     
     R_Ring_Number decoded_message = res_c.Decrypt(params, sk_pk.first);
     if (message3 != decoded_message) {
@@ -480,12 +585,22 @@ private:
 
   bool test_FHE_One_Add_for_LWE() {
     std::cout << "test_FHE_One_Add_for_LWE ";
-    return test_FHE_One_Add(LWE_Based);
+    return test_FHE_One_Add(LWE_Based, FHE_Addition);
   }
 
   bool test_FHE_One_Add_for_RLWE() {
     std::cout << "test_FHE_One_Add_for_RLWE ";
-    return test_FHE_One_Add(RLWE_Based);
+    return test_FHE_One_Add(RLWE_Based, FHE_Addition);
+  }
+
+  bool test_FHE_One_Mult_for_LWE() {
+    std::cout << "test_FHE_One_Mult_for_LWE ";
+    return test_FHE_One_Add(LWE_Based, FHE_Multiplication);
+  }
+
+  bool test_FHE_One_Mult_for_RLWE() {
+    std::cout << "test_FHE_One_Mult_for_RLWE ";
+    return test_FHE_One_Add(RLWE_Based, FHE_Multiplication);
   }
 
 public:
@@ -503,13 +618,15 @@ public:
 	!test_FHE_for_RLWE() ||
 	!test_Powersof2_BitDecomposition() ||
 	!test_Number_Scale() ||
-	!test_FHE_Switch_Keys()) {
+	!test_FHE_Switch_Keys() ||
+	!test_FHE_One_Add_for_LWE() ||
+	!test_FHE_One_Add_for_RLWE() ||
+	!test_FHE_One_Mult_for_LWE() ||
+	!test_FHE_One_Mult_for_RLWE()) {
       std::cout << "Overall tests FAILED" << std::endl;
     } else {
       std::cout << "Overall tests PASSED" << std::endl;
     }
-    // test_FHE_One_Add_for_LWE();
-    // test_FHE_One_Add_for_RLWE();
   }
 };
 

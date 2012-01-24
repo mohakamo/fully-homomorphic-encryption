@@ -249,6 +249,11 @@ public:
     }
     return c;
   }
+
+  static R_Ring_Number Get_Noise(GLWE_Params &params, R_Ring_Vector &sk, R_Ring_Vector &c) {
+    assert(c.Get_q() == params.q && sk.Get_q() == params.q);
+    return c.Dot_Product(sk);
+  }
   
   static R_Ring_Number Decrypt(GLWE_Params &params, R_Ring_Vector &sk, R_Ring_Vector &c) {
     assert(c.Get_q() == params.q && sk.Get_q() == params.q);
