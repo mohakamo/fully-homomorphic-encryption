@@ -94,6 +94,16 @@ public:
     
     return res;
   }
+
+  R_Ring_Vector operator - (const R_Ring_Vector &r) const {
+    assert(dimension == r.dimension && r.dimension != 0);
+    R_Ring_Vector res(Get_q(), Get_d(), dimension);
+    for (int i = 0; i < dimension; i++) {
+      res[i] = vec[i] - r.vec[i];
+    }
+    
+    return res;
+  }
   
   /*R_Ring_Matrix operator R_Ring_Matrix() const {
     return R_Ring_Matrix(Get_q(), Get_d(), vec, dimension, 1);

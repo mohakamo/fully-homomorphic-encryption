@@ -12,8 +12,9 @@
 #include <math.h>
 
 class R_Ring_Number {
-  int q, d;
-  int* vec;
+  long long q;
+  int d;
+  long long* vec;
 public:
   ~R_Ring_Number() {
     if (vec != NULL) {
@@ -26,11 +27,11 @@ public:
     vec = NULL;
   }
   
-  R_Ring_Number(int q_, int d_) {
+  R_Ring_Number(long long q_, int d_) {
     Initialize(q_, d_);
   }
   
-  R_Ring_Number(int q_, int d_, int array[]) {
+  R_Ring_Number(long long q_, int d_, long long array[]) {
     Initialize(q_, d_);
     for (int i = 0; i < d; i++) {
       vec[i] = array[i];
@@ -45,19 +46,19 @@ public:
   }
   
   // Assume Initialize is called on blank instance, otherwise there will be memory leak for vec
-  void Initialize(int q_, int d_) {
+  void Initialize(long long q_, int d_) {
     assert(q_ != 0 && d_ != 0);
     q = q_;
     d = d_;
-    vec = new int [2 * d];
+    vec = new long long [2 * d];
     for (int i = 0; i < 2 * d; i++) {
       vec[i] = 0;
     }
   }
 
-  int Fast_Reduce(int n) const {
-    int q_half_b = q / 2;
-    int q_half_a = -(q - 1) / 2;
+  long long Fast_Reduce(long long n) const {
+    long long q_half_b = q / 2;
+    long long q_half_a = -(q - 1) / 2;
     if (n > q_half_b) {
       n -= q;
     } else if (n < q_half_a) {
@@ -67,11 +68,11 @@ public:
     return n;
   }    
 
-  static int Reduce(int n, int modul) {
+  static long long Reduce(long long n, long long modul) {
     // for odd module reduce to range [-(q - 1) / 2, (q - 1) / 2]
     // for even module reduce to range [(q - 2) / 2, q / 2]
-    int q_half_b = modul / 2;
-    int q_half_a = -(modul - 1) / 2;
+    long long q_half_b = modul / 2;
+    long long q_half_a = -(modul - 1) / 2;
     if (n > q_half_b) {
       n -= ((n - q_half_b - 1) / modul + 1) * modul;
     } else if (n < q_half_a) {
@@ -81,7 +82,7 @@ public:
     return n;
   }    
 
-  int Reduce(int n) const {
+  long long Reduce(long long n) const {
     return Reduce(n, q);
   }
 
@@ -128,7 +129,7 @@ public:
       if (vec != NULL) {
 	delete [] vec;
       }
-      vec = new int [2 * v.d];
+      vec = new long long [2 * v.d];
       d = v.d;
     }
     for (int i = 0; i < d; i++) {
@@ -144,7 +145,7 @@ public:
     return *this;
   }
   
-  R_Ring_Number& operator =(int n) {
+  R_Ring_Number& operator =(long long n) {
     assert(d != 0 && q > 0 && vec != NULL);
     for (int i = 0; i < d; i++) {
       vec[i] = 0;
@@ -153,7 +154,7 @@ public:
     return *this;
   }
   
-  R_Ring_Number operator *(int constant) const {
+  R_Ring_Number operator *(long long constant) const {
     R_Ring_Number res(q, d);
     for (int i = 0; i < d; i++) {
       res.vec[i] = Reduce(vec[i] * constant);
@@ -213,43 +214,43 @@ public:
     return !((*this) == r);
   }
   
-  int& operator [] (int index) {
+  long long& operator [] (int index) {
     return vec[index];
   }
   
-  R_Ring_Number Clamp(int modul) {
+  R_Ring_Number Clamp(long long modul) {
     for (int i = 0; i < d; i++) {
       vec[i] = Reduce(vec[i], modul);
     }
     return *this;
   }
 
-  R_Ring_Number Get_Clamped(int modul) {
+  R_Ring_Number Get_Clamped(long long modul) {
     R_Ring_Number result(*this);
     result.Clamp(modul);
     return result;
   }
 
-  void Increase_Modul(int new_q) {
+  void Increase_Modul(long long new_q) {
     assert(q <= new_q);
     q = new_q;
   }
 
-  R_Ring_Number Scale(int q_, int p, int r) {
+  R_Ring_Number Scale(long long q_, long long p, int r) {
     assert(q_ == q);
     assert(p < q);
     assert(p % 2 == 1 && q % 2 == 1);
     assert(r == 2); // for simplicity, in future should be assert(r < p)
-    float fraq = (p - 1) / (float)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
+    double fraq = (p - 1) / (double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
     R_Ring_Number res_v(p, d);
     for (int i = 0; i < d; i++) {
       int desired_module = Reduce(vec[i], r);
-      float tmp = vec[i] * fraq;
-      int value[] = {tmp, tmp + 1, tmp - 1, tmp + 2, tmp - 2}; // TODO: think about better approach
-      int max_dist = 2 * q;
+      double tmp = vec[i] * fraq;
+      long long value[] = {tmp, tmp + 1, tmp - 1, tmp + 2, tmp - 2}; // TODO: think about better approach
+      double max_dist = 2 * q;
       for (int j = 0; j < 5; j++) {
 	value[j] = Reduce(value[j], p);
-	int dist = fabs(tmp - value[j]);
+	double dist = fabs(tmp - value[j]);
 	if (Reduce(value[j], r) == desired_module && dist < max_dist) {
 	  max_dist = dist;
 	  res_v[i] = value[j];
@@ -301,7 +302,7 @@ public:
     return cout;
     }*/
 
-  static R_Ring_Number Uniform_Rand(int q, int d, int bound = -1) {
+  static R_Ring_Number Uniform_Rand(long long q, int d, long long bound = -1) {
     // ALLERT!!! use Salso20 PRG - it is believed to be PRG, it is based on some hard problem
     //srand(time(NULL));
     if (bound != -1) {
@@ -320,11 +321,11 @@ public:
     return d;
   }
   
-  int Get_q(void) const {
+  long long Get_q(void) const {
     return q;
   }
 
-  int* Get_vec(void) const {
+  long long* Get_vec(void) const {
     return vec;
   }
 };

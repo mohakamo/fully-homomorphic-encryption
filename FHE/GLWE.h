@@ -15,7 +15,7 @@ public:
     q = d = n = N = B = 0;
     noise = NULL;
   }
-  GLWE_Params(int q, int d, int n, int N, int B,  R_Ring_Number (*noise)(int q, int d, int B)) {
+  GLWE_Params(long long q, int d, int n, int N, long long B,  R_Ring_Number (*noise)(long long q, int d, long long B)) {
     this->q = q;
     this->d = d;
     this->n = n;
@@ -23,9 +23,10 @@ public:
     this->B = B;
     this->noise = noise;
   }
-  int q, d, n, N, B;
+  long long B, q;
+  int d, n, N;
   /*** Noise distribution ***/
-  R_Ring_Number (*noise)(int q, int d, int B);
+  R_Ring_Number (*noise)(long long q, int d, long long B);
   
   R_Ring_Number ksi() {
     return noise(q, d, B);
@@ -56,8 +57,8 @@ typedef R_Ring_Vector GLWE_Ciphertext_Type;
 
 /*** Basic GLWE_Encryption_Scheme ***/
 class GLWE {
-  static int Choose_q(int mu) {
-    assert(mu < sizeof(int) * 8);
+  static long long Choose_q(int mu) {
+    assert(mu < sizeof(long long) * 8);
     return (1 << mu) - 1;
     // return 4095;
   }
@@ -78,11 +79,11 @@ class GLWE {
     return 2;
   }
  private:
-  static int Choose_N(int n, int q) {
+  static int Choose_N(int n, long long q) {
     return ceil((2 * n + 1) * log((double)q));
   }
 
-  static R_Ring_Number Noise(int q, int d, int B) {
+  static R_Ring_Number Noise(long long q, int d, long long B) {
     /*
     // TODO: to be implemented
     // int bound = floor(sqrt(q * 0.2 / Choose_N(n, q)));
@@ -102,7 +103,7 @@ class GLWE {
     return res;
   }
 
-  static int Choose_B(int q, int d, int N) {
+  static int Choose_B(long long q, int d, int N) {
     int B = floor((q - 2) / 4.0 / d / (double)N);
     if (B <= 1) {
       std::cout << "suggested q : q / log2(q) >= " << 8 * d * N / ceil(log2(1.0 * q)) + 2 << std::endl;
@@ -117,11 +118,11 @@ class GLWE {
   }
 public:	
   GLWE_Params Setup(int lambda, int mu, GLWE_Type b) const {
-    int q = Choose_q(mu);
+    long long q = Choose_q(mu);
     int n = Choose_n(lambda, mu, b);
     int N = Choose_N(n, q);
     int d = Choose_d(lambda, mu, b);
-    int B = Choose_B(q, d, N);
+    long long B = Choose_B(q, d, N);
 
     return GLWE_Params(q, d, n, N, B, &Noise);
   }

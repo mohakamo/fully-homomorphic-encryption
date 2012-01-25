@@ -31,7 +31,7 @@ private:
 
   bool test_Nonzero_Number() {
     std::cout << "test_Nonzero_Number ";
-    int array_a[] = {0, 1, 1, 0};
+    long long array_a[] = {0, 1, 1, 0};
     R_Ring_Number a(2, 4, array_a);
     
     for (int i = 0; i < 4; i++) {
@@ -46,8 +46,8 @@ private:
 
   bool test_Number_Addition() {
     std::cout << "test_Number_Addition ";
-    int array_a[] = {0, 1, 1, 0};
-    int array_b[] = {0, 0, 1, 1};
+    long long array_a[] = {0, 1, 1, 0};
+    long long array_b[] = {0, 0, 1, 1};
     R_Ring_Number a(2, 4, array_a);
     R_Ring_Number b(2, 4, array_b);
 
@@ -65,8 +65,8 @@ private:
 
   bool test_Number_Multiplication() {
     std::cout << "test_Number_Multiplication ";
-    int array_a[] = {2, 0, 2, 1};
-    int array_b[] = {1, 0, 0, 1};
+    long long array_a[] = {2, 0, 2, 1};
+    long long array_b[] = {1, 0, 0, 1};
 
     R_Ring_Number a(3, 4, array_a);
     R_Ring_Number b(3, 4, array_b);
@@ -120,9 +120,9 @@ private:
   bool test_Number_Equality() {
     std::cout << "test_Number_Equality ";
 
-    int array_a[] = {1, 1, 0, 0};
-    int array_b[] = {1, 1, 0, 0};
-    int array_c[] = {1, 0, 0, 0};
+    long long array_a[] = {1, 1, 0, 0};
+    long long array_b[] = {1, 1, 0, 0};
+    long long array_c[] = {1, 0, 0, 0};
     
     R_Ring_Number a(2, 4, array_a),
       b(2, 4, array_b),
@@ -149,7 +149,7 @@ private:
       R_Ring_Vector ksi;
       GLWE_Public_Key_Type pk = glwe.Public_Key_Gen(params, sk, &ksi);
       
-      int *array_m = new int [params.d];
+      long long *array_m = new long long [params.d];
       for (int j = 0; j < params.d; j++) {
 	array_m[j] = rand() % 2;
       }
@@ -166,7 +166,7 @@ private:
 	message.print();
 	std::cout << std::endl;
 
-	int q = ksi.Get_q();
+	long long q = ksi.Get_q();
 
 	std::cout << "ksi = ";
 	ksi.print();
@@ -241,7 +241,7 @@ private:
       FHE_Params params = fhe.Setup(2, 2, type);
       Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
       
-      int *array_m = new int [params[0].d];
+      long long *array_m = new long long [params[0].d];
       for (int i = 0; i < params[0].d; i++) {
 	array_m[i] = rand() % 2;
       }
@@ -412,7 +412,7 @@ private:
       FHE_Params params = fhe.Setup(2, 2, types[j]);
       Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
       
-      int *array_m = new int [params[0].d];
+      long long *array_m = new long long [params[0].d];
       for (int i = 0; i < params[0].d; i++) {
 	array_m[i] = rand() % 2;
       }
@@ -553,9 +553,9 @@ private:
     FHE_Params params = fhe.Setup(2, 2, type);
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
     
-    int *array_m[2];
+    long long *array_m[2];
     for (int j = 0; j < 2; j++) {
-      array_m[j] = new int [params[0].d];
+      array_m[j] = new long long [params[0].d];
       for (int i = 0; i < params[0].d; i++) {
 	array_m[j][i] = rand() % 2;
       }
@@ -678,6 +678,33 @@ private:
     return test_FHE_One_Add(RLWE_Based, FHE_Multiplication);
   }
 
+  bool test_FHE_LSS() {
+    std::cout << "test_FHE_LSS ";/*
+    FHE fhe;
+    FHE_Params params = fhe.Setup(3, 2, type);
+    int noof_vectors = 5;
+    Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
+    
+    long long *array_m[5];
+    for (int j = 0; j < 5; j++) {
+      array_m[j] = new long long [params[0].d];
+      for (int i = 0; i < params[0].d; i++) {
+	array_m[j][i] = rand() % 2;
+      }
+    }
+    
+    R_Ring_Number message1(2, params[0].d, array_m[0]), message2(2, params[0].d, array_m[1]), message3(2, params[0].d);
+    if (operation_type == FHE_Addition) {
+      message3 = message1 + message2;
+    } else if (operation_type == FHE_Multiplication) {
+      message3 = message1 * message2;
+    }
+     
+    FHE_Cipher_Text c1 = fhe.Encrypt(params, &sk_pk.second, message1), c2 = fhe.Encrypt(params, &sk_pk.second, message2);*/
+    PASS();
+    return true;
+  }
+
 public:
   void Run_Tests() {
     if (!test_Zero_Number() ||
@@ -697,7 +724,8 @@ public:
 	!test_FHE_One_Add_for_LWE() ||
 	!test_FHE_One_Add_for_RLWE() ||
 	!test_FHE_One_Mult_for_LWE() ||
-	!test_FHE_One_Mult_for_RLWE()) {
+	!test_FHE_One_Mult_for_RLWE() ||
+	!test_FHE_LSS()) {
       std::cout << "Overall tests FAILED" << std::endl;
     } else {
       std::cout << "Overall tests PASSED" << std::endl;

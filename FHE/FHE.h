@@ -20,8 +20,9 @@ class FHE_Cipher_Text {
   R_Ring_Vector Switch_Key(R_Ring_Matrix A, R_Ring_Vector c1);
   R_Ring_Vector Scale(R_Ring_Vector &x, int q, int p, int r);
   void Update_To_Same_Level(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2);
-  Pair<R_Ring_Vector, int> Add(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2);
+  Pair<R_Ring_Vector, int> Add(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2, bool sign = true);
   Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2);
+  Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> &c1, int n);
  public:
  FHE_Cipher_Text(const Pair<R_Ring_Vector, int> &cipher, FHE_Public_Key_Type *pk) : my_cipher(Pair<R_Ring_Vector, int>(R_Ring_Vector(cipher.first), cipher.second)), my_pk(pk) {}
  FHE_Cipher_Text(const FHE_Cipher_Text &c) : my_cipher(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second), my_pk(c.my_pk) {}
@@ -37,12 +38,20 @@ class FHE_Cipher_Text {
     assert(my_pk == c.my_pk); // addresses comparison
     return FHE_Cipher_Text(Add(my_cipher, c.my_cipher), my_pk);
   }
+
+  FHE_Cipher_Text operator -(FHE_Cipher_Text &c) {
+    assert(my_pk == c.my_pk);
+    return FHE_Cipher_Text(Add(my_cipher, c.my_cipher, false), my_pk);
+  }
+
+  FHE_Cipher_Text operator *(int n) {
+    return FHE_Cipher_Text(Mult(my_cipher, n), my_pk);
+  }
   
   FHE_Cipher_Text operator *(FHE_Cipher_Text &c) {
     assert(my_pk == c.my_pk); // addresses, comparison
     return FHE_Cipher_Text(Mult(my_cipher, c.my_cipher), my_pk);
   }
-
 
   Pair<R_Ring_Vector, int> Copy_Cipher(void) const {
     R_Ring_Vector new_vector = my_cipher.first;

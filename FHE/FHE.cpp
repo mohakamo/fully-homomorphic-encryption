@@ -62,10 +62,21 @@ void FHE_Cipher_Text::Update_To_Same_Level(Pair<R_Ring_Vector, int> &c1, Pair<R_
   }
 }
 
-Pair<R_Ring_Vector, int> FHE_Cipher_Text::Add(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2) {
+Pair<R_Ring_Vector, int> FHE_Cipher_Text::Mult(Pair<R_Ring_Vector, int> &c, int n) {
+  int L = ((*my_pk).size() - 1) / 2;
+  R_Ring_Vector res_c(c.first.Get_q(), c.first.Get_d(), (c.first.Get_Dimension() * (c.first.Get_Dimension() + 1)) / 2);
+  for (int i = 0; i < c.first.Get_Dimension(); i++) {
+    res_c[i] = c.first[i] * n;
+  }
+  Pair<R_Ring_Vector, int> result(res_c, c.second);
+  Refresh(result, my_pk);
+  return result;
+}
+
+Pair<R_Ring_Vector, int> FHE_Cipher_Text::Add(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2, bool sign) { // sign = true for addition, sign = false for substraction
   int L = ((*my_pk).size() - 1) / 2;
   Update_To_Same_Level(c1, c2);
-  R_Ring_Vector c3_p = c1.first + c2.first;
+  R_Ring_Vector c3_p = sign ? (c1.first + c2.first) : (c1.first - c2.first);
   assert(c1.first.Get_Dimension() == c2.first.Get_Dimension());
   R_Ring_Vector c3(c3_p.Get_q(), c3_p.Get_d(), (c1.first.Get_Dimension() * (c1.first.Get_Dimension() + 1)) / 2);
   for (int i = 0; i < c1.first.Get_Dimension(); i++) {
