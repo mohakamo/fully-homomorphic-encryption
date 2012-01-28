@@ -135,6 +135,22 @@ public:
     }
     return res;
   }
+
+  bool operator ==(const R_Ring_Vector &c) const {
+    if (c.Get_Dimension() != Get_Dimension()) {
+      return false;
+    }
+    for (int i = 0; i < Get_Dimension(); i++) {
+      if (vec[i] != c.vec[i]) {
+	return false;
+      }
+    }
+    return true;
+  }
+
+  bool operator !=(const R_Ring_Vector &c) const {
+    return !(*this == c);
+  }
   
   int Get_q(void) const {
     assert(dimension != 0);
@@ -189,6 +205,12 @@ public:
     for (int i = 0; i < dimension; i++) {
       vec[i].Clamp(modul);
     }
+  }
+
+  R_Ring_Vector Get_Clamped(int modul) {
+    R_Ring_Vector res = *this;
+    res.Clamp(modul);
+    return res;
   }
 
   void print(void) const {

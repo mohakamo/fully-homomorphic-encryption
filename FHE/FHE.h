@@ -16,17 +16,20 @@ typedef Pair<R_Ring_Vector, int> FHE_Ciphertext_Type;
 class FHE_Cipher_Text {
   Pair<R_Ring_Vector, int> my_cipher;
   FHE_Public_Key_Type *my_pk;
+  int my_p;
 
   R_Ring_Vector Switch_Key(R_Ring_Matrix A, R_Ring_Vector c1);
+ public: // for testing purposes
   R_Ring_Vector Scale(R_Ring_Vector &x, int q, int p, int r);
+ private:
   void Update_To_Same_Level(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2);
   Pair<R_Ring_Vector, int> Add(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2, bool sign = true);
   Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2);
   Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> &c1, int n);
  public:
- FHE_Cipher_Text(const Pair<R_Ring_Vector, int> &cipher, FHE_Public_Key_Type *pk) : my_cipher(Pair<R_Ring_Vector, int>(R_Ring_Vector(cipher.first), cipher.second)), my_pk(pk) {}
- FHE_Cipher_Text(const FHE_Cipher_Text &c) : my_cipher(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second), my_pk(c.my_pk) {}
- FHE_Cipher_Text() : my_cipher(R_Ring_Vector(), 0), my_pk(NULL) {}
+ FHE_Cipher_Text(const Pair<R_Ring_Vector, int> &cipher, FHE_Public_Key_Type *pk, int p = 2) : my_cipher(Pair<R_Ring_Vector, int>(R_Ring_Vector(cipher.first), cipher.second)), my_pk(pk), my_p(p) {}
+ FHE_Cipher_Text(const FHE_Cipher_Text &c) : my_cipher(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second), my_pk(c.my_pk), my_p(c.my_p) {}
+ FHE_Cipher_Text() : my_cipher(R_Ring_Vector(), 0), my_pk(NULL), my_p(0) {}
 
   /*  FHE_Cipher_Text& operator =(const FHE_Cipher_Text &c) {
     my_cipher = Pair<R_Ring_Vector, int>(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second);
@@ -36,21 +39,21 @@ class FHE_Cipher_Text {
   
   FHE_Cipher_Text operator +(FHE_Cipher_Text &c) {
     assert(my_pk == c.my_pk); // addresses comparison
-    return FHE_Cipher_Text(Add(my_cipher, c.my_cipher), my_pk);
+    return FHE_Cipher_Text(Add(my_cipher, c.my_cipher), my_pk, my_p);
   }
 
   FHE_Cipher_Text operator -(FHE_Cipher_Text &c) {
     assert(my_pk == c.my_pk);
-    return FHE_Cipher_Text(Add(my_cipher, c.my_cipher, false), my_pk);
+    return FHE_Cipher_Text(Add(my_cipher, c.my_cipher, false), my_pk, my_p);
   }
 
   FHE_Cipher_Text operator *(int n) {
-    return FHE_Cipher_Text(Mult(my_cipher, n), my_pk);
+    return FHE_Cipher_Text(Mult(my_cipher, n), my_pk, my_p);
   }
   
   FHE_Cipher_Text operator *(FHE_Cipher_Text &c) {
     assert(my_pk == c.my_pk); // addresses, comparison
-    return FHE_Cipher_Text(Mult(my_cipher, c.my_cipher), my_pk);
+    return FHE_Cipher_Text(Mult(my_cipher, c.my_cipher), my_pk, my_p);
   }
 
   Pair<R_Ring_Vector, int> Copy_Cipher(void) const {
@@ -123,7 +126,7 @@ class FHE {
   
   int Choose_mu(int lambda, int L) {
     // TODO: to be implemented
-    return 2;
+    return 6;
   }
 
   GLWE E;
@@ -134,25 +137,27 @@ class FHE {
    * @param lambda	security parameter, 100 is a good value for it
    * @param L			maximum depth of the circuit that the scheme can evaluate
    * @param b			b == LWE_Based or b == RLWE_Based
+   * @param p                   module for message representation (should be coprime with all the modules in the ladder)
    * @return			set of parameters for each level of the circuit
    **/
-  FHE_Params Setup(int lambda, int L, GLWE_Type b) {
+  FHE_Params Setup(int lambda, int L, GLWE_Type b, int p = 2) {
     my_L = L;
-    int mu = Choose_mu(lambda, L);
     // initial modul length
     int q_size = 5;
-    int d = E.Choose_d(lambda, mu, b);
-    int n = E.Choose_n(lambda, mu, b);
+    int d = E.Choose_d(lambda, 0, b);
+    int n = E.Choose_n(lambda, 0, b);
+    int mu = ceil(4 * sqrt((double)d));
     
-    while (q_size < 8 * sizeof(int) && ((1 << q_size) - 1) / q_size < 12 * d * (2 * n + 1) + 2) {
+    while (q_size < 8 * sizeof(long long) && ((1 << q_size) - 2) / q_size < 4 * p * d * (2 * n + 1)) {
       q_size++;
     }
-    q_size++;
+    // q_size++;
+    q_size += 4;
     //    std::cout << "Chosen initial modul size = " << q_size << std::endl;
     
     std::vector<GLWE_Params> params(L + 1);
     for (int i = 0; i <= L; i++) {
-      params[i] = E.Setup(lambda, q_size + i * mu, b); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
+      params[i] = E.Setup(lambda, q_size + i * mu, b, p); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
     }
     for (int i = 0; i < L; i++) {
       params[i].d = params[L].d;
@@ -197,7 +202,7 @@ class FHE {
     }
   */
   FHE_Cipher_Text Encrypt(FHE_Params params, FHE_Public_Key_Type *pk, R_Ring_Number m) {
-    return FHE_Cipher_Text(Pair<R_Ring_Vector, int> (E.Encrypt(params[my_L], (*pk)[my_L], m), my_L), pk);
+    return FHE_Cipher_Text(Pair<R_Ring_Vector, int> (E.Encrypt(params[my_L], (*pk)[my_L], m), my_L), pk, params[0].p);
   }
   
   friend class FHE_Cipher_Text;

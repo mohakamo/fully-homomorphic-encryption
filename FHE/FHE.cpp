@@ -24,9 +24,26 @@ void FHE_Cipher_Text::Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *
   assert(c.second - 1 >= 0);
   int L = ((*my_pk).size() - 1) / 2;
   R_Ring_Vector c1 = FHE::Powersof2(c.first, (*pk)[c.second].Get_q());
-  R_Ring_Vector c2 = Scale(c1, (*pk)[c.second].Get_q(), (*pk)[c.second - 1].Get_q(), 2);
+  R_Ring_Vector c2 = Scale(c1, (*pk)[c.second].Get_q(), (*pk)[c.second - 1].Get_q(), my_p);
   assert(c2.Get_q() == (*pk)[L + c.second].Get_q());
   R_Ring_Vector c3 = Switch_Key((*pk)[L + c.second], c2);
+
+  if (my_p == 3) {
+    std::cout << "**************** Refresh operation *******************" << std::endl;
+    std::cout << "c = ";
+    c.first.print();
+    std::cout << std::endl;
+    std::cout << "c1 = ";
+    c1.print();
+    std::cout << std::endl;
+    std::cout << "Scale(" << (*pk)[c.second].Get_q() << ", " << (*pk)[c.second - 1].Get_q() << ", " <<  my_p << ")" << std::endl;
+    std::cout << "c2 = ";
+    c2.print();
+    std::cout << std::endl;
+    std::cout << "c3 = ";
+    c3.print();
+    std::cout << std::endl;
+  }
 
   c = Pair<R_Ring_Vector, int>(c3, c.second - 1);
 }

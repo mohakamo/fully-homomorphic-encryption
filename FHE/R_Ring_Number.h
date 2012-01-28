@@ -169,15 +169,15 @@ public:
     for (int i = 0; i < d; i++) {
       if (v.vec[i] != 0) {
 	for (int j = 0; j < d; j++) {
-	  res_v.vec[i + j] += vec[j] * v.vec[i];
+	  res_v.vec[i + j] = Reduce(res_v.vec[i + j] + vec[j] * v.vec[i]);
 	}
       }
     }
     
-    for (int i = 0; i < 2 * d; i++) {
+    //    for (int i = 0; i < 2 * d; i++) {
       // res_v.vec[i] %= q;
-      res_v.vec[i] = Reduce(res_v.vec[i]);
-    }
+    //      res_v.vec[i] = Reduce(res_v.vec[i]);
+    //  }
     
     // reduction by polynomial x^d + 1
     for (int i = 2 * d - 2; i >= d; i--) {
@@ -225,6 +225,16 @@ public:
     return *this;
   }
 
+  R_Ring_Number Clamp2(long long modul) {
+    for (int i = 0; i < d; i++) {
+      vec[i] = Reduce(vec[i], modul);
+      if (vec[i] < 0) {
+	vec[i] += modul;
+	}
+    }
+    return *this;
+  }
+
   R_Ring_Number Get_Clamped(long long modul) {
     R_Ring_Number result(*this);
     result.Clamp(modul);
@@ -237,6 +247,7 @@ public:
   }
 
   R_Ring_Number Scale(long long q_, long long p, int r) {
+    if (r == 2) {
     assert(q_ == q);
     assert(p < q);
     assert(p % 2 == 1 && q % 2 == 1);
@@ -258,6 +269,32 @@ public:
       }
     }
     return res_v;
+    } else {
+    assert(q_ == q);
+    assert(p < q);
+    assert(p % 2 == 1 && q % 2 == 1);
+    double fraq = (p - 1) / (double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
+    R_Ring_Number res_v(p, d);
+    for (int i = 0; i < d; i++) {
+      int desired_module = Reduce(vec[i], r);
+      double tmp_d = vec[i] * fraq;
+      int tmp = tmp_d;
+      tmp -= Reduce(tmp, r);
+      tmp += desired_module;
+      long long value[] = {tmp, tmp + r, tmp - r, tmp - 2 * r, tmp + 2 * r}; // TODO: think about better approach
+      double max_dist = 2 * q;
+      for (int j = 0; j < 5; j++) {
+	value[j] = Reduce(value[j], p);
+	double dist = fabs(tmp_d - value[j]);
+	if (dist < max_dist && Reduce(value[j], r) == desired_module) {
+	  max_dist = dist;
+	  res_v[i] = value[j];
+	}
+      }
+      assert(max_dist != 2 * q);
+    }
+    return res_v;
+    }      
   }
 
   void print(void) {

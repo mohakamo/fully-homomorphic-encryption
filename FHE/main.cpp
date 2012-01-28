@@ -135,25 +135,30 @@ private:
     return true;
   }
 
-  bool test_GLWE_for_LWE() {
+  bool test_GLWE_for_LWE(void) {
     std::cout << "test_GLWE_for_LWE ";
     return test_GLWE(LWE_Based);
   }
 
   bool test_GLWE(GLWE_Type type) {
     GLWE glwe;
-    GLWE_Params params = glwe.Setup(2, 12, type);
+    int moduls[] = {2, 3, 5, 7, 11, 13, 17, 19, 23};
 
+    for (int ii = 0; ii < 9; ii++) {
     for (int s = 0; s < 30; s++) {
+      int modul = moduls[ii];
+      GLWE_Params params = glwe.Setup(2, 13, type, modul);
+      assert(modul < params.q);
       GLWE_Secret_Key_Type sk = glwe.Secret_Key_Gen(params);
       R_Ring_Vector ksi;
       GLWE_Public_Key_Type pk = glwe.Public_Key_Gen(params, sk, &ksi);
       
       long long *array_m = new long long [params.d];
       for (int j = 0; j < params.d; j++) {
-	array_m[j] = rand() % 2;
+	array_m[j] = R_Ring_Number::Reduce(rand(), modul);
+	// array_m[j] = rand() % modul;
       }
-      R_Ring_Number message(2, params.d, array_m);
+      R_Ring_Number message(modul, params.d, array_m);
       R_Ring_Vector r;
       GLWE_Ciphertext_Type c = glwe.Encrypt(params, pk, message, &r);
       R_Ring_Number decoded_message = glwe.Decrypt(params, sk, c);
@@ -162,6 +167,9 @@ private:
 
       if (message != decoded_message) {
 	FAIL();
+	std::cout << "Message modul = " << modul << std::endl;
+	std::cout << "Cipher modul = " << params.q << std::endl;
+
 	std::cout << "Initial message = ";
 	message.print();
 	std::cout << std::endl;
@@ -187,7 +195,7 @@ private:
 	noise.print();
 	std::cout << std::endl;
 	message.Increase_Modul(noise.Get_q());
-	R_Ring_Number test_m = message + noise * 2;
+	R_Ring_Number test_m = message + noise * modul;
 	std::cout << "test_m = ";
 	test_m.print();
 	std::cout << std::endl;
@@ -197,7 +205,7 @@ private:
 	th_result.print();
 	std::cout << std::endl;
 
-	th_result = th_result.Clamp(2);
+	th_result = th_result.Clamp(modul);
 	std::cout << "th_result = ";
 	th_result.print();
 	std::cout << std::endl;
@@ -224,12 +232,12 @@ private:
 	return false;
       }
     }
+    }
     PASS();
     return true;
   }
-    
  
-  bool test_GLWE_for_RLWE() {
+  bool test_GLWE_for_RLWE(void) {
     std::cout << "test_GLWE_for_RLWE ";
     return test_GLWE(RLWE_Based);
   }
@@ -546,23 +554,26 @@ private:
     return true;
   }
 
-  bool test_FHE_One_Add(GLWE_Type type, FHE_Operation operation_type) {
+  bool test_FHE_One_Add(GLWE_Type type, FHE_Operation operation_type, int modul = 2) {
     FHE fhe;
 
-    for (int i = 0; i < 30; i++) {
-    FHE_Params params = fhe.Setup(2, 2, type);
+    for (int ii = 0; ii < 30; ii++) {
+      FHE_Params params = fhe.Setup(2, 2, type, modul);
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
     
     long long *array_m[2];
     for (int j = 0; j < 2; j++) {
       array_m[j] = new long long [params[0].d];
       for (int i = 0; i < params[0].d; i++) {
-	array_m[j][i] = rand() % 2;
+	array_m[j][i] = R_Ring_Number::Reduce(rand(), modul);
       }
     }
     
-    R_Ring_Number message1(2, params[0].d, array_m[0]), message2(2, params[0].d, array_m[1]), message3(2, params[0].d);
+    R_Ring_Number message1(modul, params[0].d, array_m[0]), message2(modul, params[0].d, array_m[1]), message3(modul, params[0].d);
     if (operation_type == FHE_Addition) {
+      if (modul == 3) {
+	modul = 3;
+      }
       message3 = message1 + message2;
     } else if (operation_type == FHE_Multiplication) {
       message3 = message1 * message2;
@@ -584,11 +595,12 @@ private:
     
     R_Ring_Number decoded_message = res_c.Decrypt(params, sk_pk.first);
     if (message3 != decoded_message) {
-      std::cout << "attempt #" << i << std::endl;
+      std::cout << "attempt #" << ii << std::endl;
+      std::cout << "modul " << modul << std::endl;
 
-      std::cout << "message1 * message2 = ";
+      std::cout << "message1 " << ((operation_type == FHE_Addition) ? "+" : "*") << " message2 = ";
       message1.print();
-      std::cout << " * ";
+      std::cout << " " << ((operation_type == FHE_Addition) ? "+" : "*") << " ";
       message2.print();
       std::cout << std::endl;
       
@@ -629,16 +641,41 @@ private:
 
       std::cout << "Current module = " << params[res_c.Get_Cipher().second].q << std::endl;
 
+      std::cout << "sk = ";
+      sk_pk.first[c1.Get_Cipher().second].print();
+      std::cout << std::endl;
 
+      std::cout << "c1.q = " << c1.Get_Cipher().first.Get_q() << std::endl;
+      std::cout << "c2.q = " << c2.Get_Cipher().first.Get_q() << std::endl;
+      int c1_s_dot = 0;
+      for (int i = 0; i < c1.Get_Cipher().first.Get_Dimension(); i++) {
+	c1_s_dot += c1.Get_Cipher().first[i][0] * sk_pk.first[c1.Get_Cipher().second][i][0];
+      }
+      std::cout << "<c1, s> = " << c1_s_dot << " = ";
+      c1.Get_Cipher().first.Dot_Product(sk_pk.first[c1.Get_Cipher().second]).print();
+      std::cout << std::endl;
+      int c2_s_dot = 0;
+      for (int i = 0; i < c2.Get_Cipher().first.Get_Dimension(); i++) {
+	c2_s_dot += c2.Get_Cipher().first[i][0] * sk_pk.first[c1.Get_Cipher().second][i][0];
+      }
+      std::cout << "<c2, s> = " << c2_s_dot << " = ";
+      c2.Get_Cipher().first.Dot_Product(sk_pk.first[c2.Get_Cipher().second]).print();
+      std::cout << std::endl;
       R_Ring_Vector sk_tensored = sk_pk.first[c1.Get_Cipher().second].Tensor_Product(sk_pk.first[c1.Get_Cipher().second]);
       int dimension = c1.Get_Cipher().first.Get_Dimension();
       int new_dimension = (dimension * (dimension + 1)) / 2;
       R_Ring_Vector c3(c1.Get_Cipher().first.Get_q(), c1.Get_Cipher().first.Get_d(), new_dimension);
-      int index = 0;
-      for (int i = 0; i < dimension; i++) {
-	c3[index++] = c1.Get_Cipher().first[i] * c2.Get_Cipher().first[i];
-	for (int j = i + 1; j < dimension; j++) {
-	  c3[index++] = c1.Get_Cipher().first[i] * c2.Get_Cipher().first[j] + c1.Get_Cipher().first[j] * c2.Get_Cipher().first[i];
+      if (operation_type == FHE_Multiplication) {
+	int index = 0;
+	for (int i = 0; i < dimension; i++) {
+	  c3[index++] = c1.Get_Cipher().first[i] * c2.Get_Cipher().first[i];
+	  for (int j = i + 1; j < dimension; j++) {
+	    c3[index++] = c1.Get_Cipher().first[i] * c2.Get_Cipher().first[j] + c1.Get_Cipher().first[j] * c2.Get_Cipher().first[i];
+	  }
+	}
+      } else if (operation_type == FHE_Addition) {
+	for (int i = 0; i < dimension; i++) {
+	  c3[i] = c1.Get_Cipher().first[i] + c2.Get_Cipher().first[i];
 	}
       }
 
@@ -647,8 +684,123 @@ private:
       std::cout << ", ";
       c3.print();
       std::cout << "> = ";
-      sk_tensored.Dot_Product(c3).print();
+      R_Ring_Number before_reduction = sk_tensored.Dot_Product(c3);
+      before_reduction.print();
       std::cout << std::endl;
+
+      int p = res_c.Get_Cipher().first.Get_q(), q = c3.Get_q();
+
+      R_Ring_Vector c_powers2 = FHE::Powersof2(c3, c3.Get_q());
+      assert(c3.Get_q() == sk_tensored.Get_q());
+      R_Ring_Vector sk_tensored_bitdec = FHE::Bit_Decomposition(sk_tensored, c3.Get_q());
+      std::cout << "<c_powers2, sk_tensored_bitdec> = ";
+      c_powers2.Dot_Product(sk_tensored_bitdec).print();
+      std::cout << " = ";
+      c_powers2.Dot_Product(sk_tensored_bitdec).Clamp(modul).print();
+      std::cout << " mod " << modul;
+      std::cout << std::endl;
+
+      R_Ring_Vector c_scale = res_c.Scale(c_powers2, q, p, modul);
+      for (int i = 0; i < c_scale.Get_Dimension(); i++) {
+	assert(R_Ring_Number::Reduce(c_scale[i][0], modul) == R_Ring_Number::Reduce(c_powers2[i][0], modul));
+      }
+      std::cout << "Scale(" << c3.Get_q() << ", " << res_c.Get_Cipher().first.Get_q() << ", " << modul << ")" << std::endl;
+      std::cout << "<c_scale, sk_tensored_bit_dec> = ";
+      c_scale.Increase_Modul(c3.Get_q());
+      c_scale.Dot_Product(sk_tensored_bitdec).Clamp(modul).print();
+      std::cout << std::endl;
+
+      for (int i = 0; i < c_powers2.Get_Dimension(); i++) {
+	assert((c_scale[i] * sk_tensored_bitdec[i]).Get_Clamped(modul) ==
+	       (c_powers2[i] * sk_tensored_bitdec[i]).Get_Clamped(modul));
+      }
+      
+      R_Ring_Number r1(c3.Get_q(), c_powers2.Get_d()), r2(c3.Get_q(), c_scale.Get_d());
+
+      std::cout << "q = " << q << " p = " << p << std::endl;
+      long long r1_int = 0, r2_int = 0;
+      for (int i = 0; i < c_powers2.Get_Dimension(); i++) {
+	R_Ring_Number r1_new, r2_new;
+	R_Ring_Number a1 = c_powers2[i] * sk_tensored_bitdec[i], a2 = c_scale[i] * sk_tensored_bitdec[i];
+	r1_new = r1 + a1;
+	r2_new = r2 + a2;
+	r1_int += a1[0];
+	r2_int += a2[0];
+	
+	/* if (r1_new.Get_Clamped(modul) != r2_new.Get_Clamped(modul)) {
+	  std::cout << "r1_new != r2_new in position #" << i << std::endl;
+	  std::cout << "r1_new = ";
+
+	  r1_new.print();
+	  std::cout << std::endl << "r2_new = ";
+	  r2_new.print();
+	  std::cout << std::endl;
+
+	  std::cout << "r1 = ";
+	  r1.print();
+	  std::cout << std::endl << "r2 = ";
+	  r2.print();
+	  std::cout << std::endl;
+
+	  std::cout << "a1 = ";
+	  a1.print();
+	  std::cout << std::endl << "r2 = ";
+	  a2.print();
+	  std::cout << std::endl;
+
+	  break;
+	  } */
+	r1 = r1_new;
+	r2 = r2_new;
+      }
+      std::cout << "r1_int = " << r1_int << std::endl;
+      std::cout << "r2_int = " << r2_int << std::endl;
+
+      std::cout << "r1 = ";
+      r1.print();
+      std::cout << std::endl;
+      std::cout << "r2 = ";
+      r2.print();
+      std::cout << std::endl;
+
+      R_Ring_Vector mod_p_zero_vector = (c_scale - c_powers2).Get_Clamped(modul);
+      for (int i = 0; i < mod_p_zero_vector.Get_Dimension(); i++) {
+	assert(mod_p_zero_vector[i][0] == 0);
+      }
+
+      std::cout << "mod_p_zero_vector = ";
+      mod_p_zero_vector.print();
+      std::cout << std::endl;
+
+      std::cout << "c_sclae = ";
+      c_scale.print();
+      std::cout << std::endl << "c_powers2 = ";
+      c_powers2.print();
+      std::cout << std::endl << "sk_tensored_bitdec = ";
+      sk_tensored_bitdec.print();
+      std::cout << std::endl;
+
+      R_Ring_Vector c_powers2_clamped = c_powers2.Get_Clamped(modul), c_scale_clamped = c_scale.Get_Clamped(modul);
+      std::cout << "c_powers2_clamped = ";
+      c_powers2_clamped.print();
+      std::cout << std::endl << "c_scale_clamped   = ";
+      c_scale_clamped.print();
+      std::cout << std::endl;
+      if (c_powers2_clamped != c_scale_clamped) {
+	std::cout << "ALERT c_powers2_clamped != c_scale_clamped" << std::endl;
+      }
+
+      std::cout << "Result = ";
+      before_reduction.Clamp(modul);
+      before_reduction.print();
+      std::cout << std::endl;
+
+      std::cout << "<s, c> = ";
+      res_c.Get_Cipher().first.Dot_Product(sk_pk.first[res_c.Get_Cipher().second]).print();
+      std::cout << std::endl;
+      
+
+      //      FHE::Refresh(c3, sk_pk.second);
 
       FAIL();
       return false;
@@ -658,24 +810,25 @@ private:
     return true;
   }
 
-  bool test_FHE_One_Add_for_LWE() {
-    std::cout << "test_FHE_One_Add_for_LWE ";
-    return test_FHE_One_Add(LWE_Based, FHE_Addition);
-  }
+  bool test_FHE_Operations(void) {
+    int modules[] = {2, 3, 5, 7, 31};
+    char tests_names[][27] = {"test_FHE_One_Add_for_LWE  ",
+			    "test_FHE_One_Add_for_RLWE ",
+			    "test_FHE_One_Mult_for_LWE ",
+			    "test_FHE_One_Mult_for_RLWE"};
+    GLWE_Type types[] = {LWE_Based, RLWE_Based, LWE_Based, RLWE_Based};
+    FHE_Operation operation[] = {FHE_Addition, FHE_Addition, FHE_Multiplication, FHE_Multiplication};
 
-  bool test_FHE_One_Add_for_RLWE() {
-    std::cout << "test_FHE_One_Add_for_RLWE ";
-    return test_FHE_One_Add(RLWE_Based, FHE_Addition);
-  }
-
-  bool test_FHE_One_Mult_for_LWE() {
-    std::cout << "test_FHE_One_Mult_for_LWE ";
-    return test_FHE_One_Add(LWE_Based, FHE_Multiplication);
-  }
-
-  bool test_FHE_One_Mult_for_RLWE() {
-    std::cout << "test_FHE_One_Mult_for_RLWE ";
-    return test_FHE_One_Add(RLWE_Based, FHE_Multiplication);
+    for (int i = 0; i < 4; i++) {
+      std::cout << tests_names[i] << " ";
+    for (int j = 0; j < 5; j++) {
+      std::cout << std::endl << "Module " << modules[j] << std::endl;
+      if (!test_FHE_One_Add(types[i], operation[i], modules[j])) {
+	return false;
+      }
+    }
+    }
+    return true;
   }
 
   bool test_FHE_LSS() {
@@ -716,15 +869,13 @@ public:
 
 	!test_GLWE_for_LWE() ||
 	!test_GLWE_for_RLWE() ||
+
 	!test_FHE_for_LWE() ||
 	!test_FHE_for_RLWE() ||
 	!test_Powersof2_BitDecomposition() ||
 	!test_Number_Scale() ||
 	!test_FHE_Switch_Keys() ||
-	!test_FHE_One_Add_for_LWE() ||
-	!test_FHE_One_Add_for_RLWE() ||
-	!test_FHE_One_Mult_for_LWE() ||
-	!test_FHE_One_Mult_for_RLWE() ||
+	!test_FHE_Operations() ||
 	!test_FHE_LSS()) {
       std::cout << "Overall tests FAILED" << std::endl;
     } else {

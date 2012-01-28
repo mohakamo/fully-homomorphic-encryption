@@ -12,24 +12,26 @@
 class GLWE_Params {
 public:
   GLWE_Params() {
-    q = d = n = N = B = 0;
+    q = d = n = N = B = p = 0;
     noise = NULL;
   }
-  GLWE_Params(long long q, int d, int n, int N, long long B,  R_Ring_Number (*noise)(long long q, int d, long long B)) {
+  GLWE_Params(long long q, int d, int n, int N, long long B, int p,  R_Ring_Number (*noise)(long long q, int d, long long B, int p)) {
     this->q = q;
     this->d = d;
     this->n = n;
     this->N = N;
     this->B = B;
+    this->p = p;
     this->noise = noise;
   }
   long long B, q;
   int d, n, N;
+  int p;
   /*** Noise distribution ***/
-  R_Ring_Number (*noise)(long long q, int d, long long B);
+  R_Ring_Number (*noise)(long long q, int d, long long B, int p);
   
   R_Ring_Number ksi() {
-    return noise(q, d, B);
+    return noise(q, d, B, p);
   }
   
   GLWE_Params(const GLWE_Params &r) {
@@ -38,6 +40,7 @@ public:
     n = r.n;
     N = r.N;
     B = r.B;
+    p = r.p;
     noise = r.noise;
   }
 
@@ -46,7 +49,8 @@ public:
     std::cout << "d=" << d << ", ";
     std::cout << "n=" << n << ", ";
     std::cout << "N=" << N << ", ";
-    std::cout << "B=" << B << ")";
+    std::cout << "B=" << B << ",";
+    std::cout << "p=" << p << ")";
   }
 };
 
@@ -59,8 +63,118 @@ typedef R_Ring_Vector GLWE_Ciphertext_Type;
 class GLWE {
   static long long Choose_q(int mu) {
     assert(mu < sizeof(long long) * 8);
-    return (1 << mu) - 1;
-    // return 4095;
+    if (mu == 2) {
+      return 3;
+    } else if (mu == 3) {
+      return 7;
+    } else if (mu == 4) {
+      return 13;
+    } else if (mu == 5) {
+      return 29;
+    } else if (mu == 6) {
+      return 37;
+    } else if (mu == 7) {
+      return 83;
+    }
+
+    int diff[] = {
+      5,
+      3,
+3,
+9,
+3,
+1,
+3,
+19,
+15,
+1,
+5,
+1,
+3,
+9,
+3,
+15,
+3,
+39,
+5,
+39,
+57,
+3,
+35,
+1,
+5,
+9,
+41,
+31,
+5,
+25,
+45,
+7,
+87,
+21,
+11,
+57,
+17,
+55,
+21,
+115,
+59,
+81,
+27,
+129,
+47,
+111,
+33,
+55,
+5,
+13,
+27,
+55,
+93,
+1,
+57,
+25,
+59,
+49,
+5,
+19,
+23,
+19,
+35,
+231,
+93,
+69,
+35,
+97,
+15,
+33,
+11,
+67,
+65,
+51,
+57,
+55,
+35,
+19,
+35,
+67,
+299,
+1,
+33,
+45,
+83,
+25,
+3,
+15,
+17,
+141,
+51,
+115,
+      15};
+    if (mu >= 8) {
+      return (1 << mu) - diff[mu - 8];
+    }
+    return -1;
   }
  public:
   static int Choose_d(int lambda, int mu, GLWE_Type b) {
@@ -83,7 +197,7 @@ class GLWE {
     return ceil((2 * n + 1) * log((double)q));
   }
 
-  static R_Ring_Number Noise(long long q, int d, long long B) {
+  static R_Ring_Number Noise(long long q, int d, long long B, int p) {
     /*
     // TODO: to be implemented
     // int bound = floor(sqrt(q * 0.2 / Choose_N(n, q)));
@@ -97,34 +211,36 @@ class GLWE {
     return res;
     */
     assert(B >= 2);
-    R_Ring_Number res = R_Ring_Number::Uniform_Rand(3, d);
+    R_Ring_Number res = R_Ring_Number::Uniform_Rand(2, d);
+    //    R_Ring_Number res = R_Ring_Number(2, d);
     res.Increase_Modul(q);
     //    R_Ring_Number res(q, d);
     return res;
   }
 
-  static int Choose_B(long long q, int d, int N) {
-    int B = floor((q - 2) / 4.0 / d / (double)N);
+  static int Choose_B(long long q, int d, int N, int p) {
+    int B = floor((q - 2) / 2.0 / p / d / (double)N);
     if (B <= 1) {
-      std::cout << "suggested q : q / log2(q) >= " << 8 * d * N / ceil(log2(1.0 * q)) + 2 << std::endl;
+      std::cout << "suggested q : q / log2(q) >= " << 4 * p * d * N / ceil(log2(1.0 * q)) + 2 << std::endl;
       std::cout << "q = " << q << std::endl;
       std::cout << "d = " << d << std::endl;
       std::cout << "N = " << N << std::endl;
       std::cout << "B = " << B << std::endl;
+      std::cout << "p = " << p << std::endl;
     }
     assert(B > 1);
 
     return B;
   }
 public:	
-  GLWE_Params Setup(int lambda, int mu, GLWE_Type b) const {
+  GLWE_Params Setup(int lambda, int mu, GLWE_Type b, int p = 2) const {
     long long q = Choose_q(mu);
     int n = Choose_n(lambda, mu, b);
     int N = Choose_N(n, q);
     int d = Choose_d(lambda, mu, b);
-    long long B = Choose_B(q, d, N);
+    long long B = Choose_B(q, d, N, p);
 
-    return GLWE_Params(q, d, n, N, B, &Noise);
+    return GLWE_Params(q, d, n, N, B, p, &Noise);
   }
 	
   R_Ring_Vector Secret_Key_Gen(GLWE_Params &params) const {
@@ -205,7 +321,7 @@ public:
     As.print();
     std::cout << std::endl;*/
     assert(As.Get_Dimension() == params.N);
-    pk.Set_Column(0, As + ksi_noise * 2);
+    pk.Set_Column(0, As + ksi_noise * params.p);
     pk.Set_Block(0, 1, -A_prime);
 
     if (ksi_noise_for_debug != NULL) {
@@ -216,7 +332,7 @@ public:
   
   R_Ring_Vector Encrypt(GLWE_Params &params, R_Ring_Matrix &pk, R_Ring_Number &m, R_Ring_Vector *r_for_debug = NULL) const {
     // TODO: to implement for arbitrary m.q;
-    assert(m.Get_q() == 2);
+    assert(m.Get_q() == params.p);
     
     // m_prime
     R_Ring_Vector m_prime(params.q, params.d, params.n + 1);
@@ -258,6 +374,21 @@ public:
   
   static R_Ring_Number Decrypt(GLWE_Params &params, R_Ring_Vector &sk, R_Ring_Vector &c) {
     assert(c.Get_q() == params.q && sk.Get_q() == params.q);
+    /*
+    int r = 0;
+    if (c.Get_d() == 1) {
+      for (int i = 0; i < c.Get_Dimension(); i++) {
+	r += c[i][0];
+      }
+    }
+    if (r > (c.Get_q() - 1) / 2 || r < -(c.Get_q() - 1) / 2) {
+      std::cout << "r = " << r << std::endl;
+      std::cout << "q = " << c.Get_q() << std::endl;
+      std::cout << "dimension = " << c.Get_Dimension() << std::endl;
+      std::cout << "c = "; c.print(); std::cout << std::endl;
+      std::cout << "s = "; sk.print(); std::cout << std::endl;
+      assert(false);
+      }*/
     R_Ring_Number dot_product = c.Dot_Product(sk);
     /*std::cout << "dot_product = ";
     dot_product.print();
@@ -266,7 +397,7 @@ public:
     /*std::cout << "clamped1 = ";
     clamped1.print();
     std::cout << std::endl;*/
-    R_Ring_Number clamped2 = dot_product.Clamp(2);
+    R_Ring_Number clamped2 = dot_product.Clamp(params.p);
     return clamped2;
   }
 };
