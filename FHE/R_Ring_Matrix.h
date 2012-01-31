@@ -27,13 +27,13 @@ public:
     matrix = NULL;
   }
   
-  R_Ring_Matrix(int q, int d, const R_Ring_Number *matrix, int noof_rows, int noof_columns) {
+  R_Ring_Matrix(long long q, int d, const R_Ring_Number *matrix, int noof_rows, int noof_columns) {
     matrix = NULL;
     Initialize(q, d, noof_rows, noof_columns);
     memcpy(this->matrix, matrix, sizeof(R_Ring_Number) * noof_columns * noof_rows);
   }
   
-  R_Ring_Matrix(int q, int d, int noof_rows, int noof_columns) {
+  R_Ring_Matrix(long long q, int d, int noof_rows, int noof_columns) {
     matrix = NULL;
     Initialize(q, d, noof_rows, noof_columns);
   }
@@ -71,7 +71,7 @@ public:
   }
   
   // Added for initialization during array allocation
-  void Initialize(int q, int d, int _noof_rows, int _noof_columns) {
+  void Initialize(long long q, int d, int _noof_rows, int _noof_columns) {
     if (matrix != NULL) {
       delete [] matrix;
     }
@@ -186,14 +186,14 @@ public:
     return *this;
   }
 
-  void Increase_Modul(int new_q) {
+  void Increase_Modul(long long new_q) {
     assert(new_q >= Get_q());
     for (int i = 0; i < noof_rows * noof_columns; i++) {
       matrix[i].Increase_Modul(new_q);
     }
   }
   
-  int Get_q(void) const {
+  long long Get_q(void) const {
     assert(noof_rows != 0 && noof_columns != 0);
     return matrix[0].Get_q();
   }

@@ -57,6 +57,8 @@ public:
   }
 
   long long Fast_Reduce(long long n) const {
+    return Reduce(n);
+    /*
     long long q_half_b = q / 2;
     long long q_half_a = -(q - 1) / 2;
     if (n > q_half_b) {
@@ -65,8 +67,8 @@ public:
       n += q;
     }
     assert(n <= q_half_b && n >= q_half_a);
-    return n;
-  }    
+    return n; */
+  }
 
   static long long Reduce(long long n, long long modul) {
     // for odd module reduce to range [-(q - 1) / 2, (q - 1) / 2]
@@ -217,20 +219,24 @@ public:
   long long& operator [] (int index) {
     return vec[index];
   }
+
+  static long long Clamp(long long n, long long modul) {
+    // for odd module reduce to range [-(q - 1) / 2, (q - 1) / 2]
+    // for even module reduce to range [(q - 2) / 2, q / 2]
+    long long q_half_b = modul / 2;
+    long long q_half_a = -(modul - 1) / 2;
+    if (n > q_half_b) {
+      n -= ((n - q_half_b - 1) / modul + 1) * modul;
+    } else if (n < q_half_a) {
+      n += (-(n - q_half_a + 1) / modul + 1) * modul;
+    }
+    assert(n <= q_half_b && n >= q_half_a);
+    return n;
+  }
   
   R_Ring_Number Clamp(long long modul) {
     for (int i = 0; i < d; i++) {
-      vec[i] = Reduce(vec[i], modul);
-    }
-    return *this;
-  }
-
-  R_Ring_Number Clamp2(long long modul) {
-    for (int i = 0; i < d; i++) {
-      vec[i] = Reduce(vec[i], modul);
-      if (vec[i] < 0) {
-	vec[i] += modul;
-	}
+      vec[i] = Clamp(vec[i], modul);
     }
     return *this;
   }
@@ -252,21 +258,23 @@ public:
     assert(p < q);
     assert(p % 2 == 1 && q % 2 == 1);
     assert(r == 2); // for simplicity, in future should be assert(r < p)
-    double fraq = (p - 1) / (double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
+    long double fraq = (p - 1) / (long double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
     R_Ring_Number res_v(p, d);
     for (int i = 0; i < d; i++) {
-      int desired_module = Reduce(vec[i], r);
-      double tmp = vec[i] * fraq;
-      long long value[] = {tmp, tmp + 1, tmp - 1, tmp + 2, tmp - 2}; // TODO: think about better approach
-      double max_dist = 2 * q;
+      int desired_module = Clamp(vec[i], r);
+      long double tmp = vec[i] * fraq;
+      long long value[] = {tmp, tmp + ((tmp > 0) ? -1 : 1), tmp + ((tmp > 0) ? 1 : -1), tmp + 2, tmp - 2}; // TODO: think about better approach
+      double max_dist = LLONG_MAX;
       for (int j = 0; j < 5; j++) {
 	value[j] = Reduce(value[j], p);
 	double dist = fabs(tmp - value[j]);
-	if (Reduce(value[j], r) == desired_module && dist < max_dist) {
+	if (Clamp(value[j], r) == desired_module && dist < max_dist) {
 	  max_dist = dist;
 	  res_v[i] = value[j];
 	}
       }
+      assert(fabs(res_v[i] - tmp) <= 0.5 * r);
+      assert(max_dist != LLONG_MAX);
     }
     return res_v;
     } else {
@@ -276,22 +284,41 @@ public:
     double fraq = (p - 1) / (double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
     R_Ring_Number res_v(p, d);
     for (int i = 0; i < d; i++) {
-      int desired_module = Reduce(vec[i], r);
-      double tmp_d = vec[i] * fraq;
-      int tmp = tmp_d;
-      tmp -= Reduce(tmp, r);
+      int desired_module = Clamp(vec[i], r);
+      long double tmp_d = (vec[i] / (double)(q - 1)) * (p - 1);
+      long long tmp = tmp_d;
+      tmp -= Clamp(tmp, r);
       tmp += desired_module;
-      long long value[] = {tmp, tmp + r, tmp - r, tmp - 2 * r, tmp + 2 * r}; // TODO: think about better approach
-      double max_dist = 2 * q;
+      long long value[] = {tmp, tmp + (tmp > 0 ? -r : r), tmp + (tmp > 0 ? r : -r), tmp - 2 * r, tmp + 2 * r}; // TODO: think about better approach
+      double max_dist = LLONG_MAX;
       for (int j = 0; j < 5; j++) {
 	value[j] = Reduce(value[j], p);
 	double dist = fabs(tmp_d - value[j]);
-	if (dist < max_dist && Reduce(value[j], r) == desired_module) {
+	if (dist < max_dist && Clamp(value[j], r) == desired_module) {
 	  max_dist = dist;
 	  res_v[i] = value[j];
 	}
       }
-      assert(max_dist != 2 * q);
+      if (fabs(res_v[i] - tmp_d) > r) {
+	std::cout << "q = " << q << ", p = " << p << ", tmp_d = " << tmp_d << ", vec[i] = " << vec[i] << ", tmp = " << tmp << ", res_v[i] = " << res_v[i] << ", r = " << r << ", fraq = " << fraq << std::endl;
+	std::cout << "res_v[i] - tmp_d = " << res_v[i] - tmp_d << std::endl;
+	std::cout << "value[0] - tmp_d = " << value[0] - tmp_d << std::endl;
+	std::cout << "value[1] - tmp_d = " << value[1] - tmp_d << std::endl;
+	std::cout << "value[2] - tmp_d = " << value[2] - tmp_d << std::endl;
+
+	std::cout << "0.5 * r = " << 0.5 * r << std::endl;
+	
+	std::cout << "value[0] = " << value[0] << std::endl;
+	std::cout << "value[1] = " << value[1] << std::endl;
+	std::cout << "value[2] = " << value[2] << std::endl;
+	std::cout << "value[3] = " << value[3] << std::endl;
+	std::cout << "value[4] = " << value[4] << std::endl;
+
+	std::cout << "sizeof(double) = " << sizeof(double) << std::endl;
+	exit(1);
+      }
+      // assert(fabs(res_v[i] - tmp) <= 0.5 * r);
+      assert(max_dist != LLONG_MAX);
     }
     return res_v;
     }      
@@ -349,7 +376,7 @@ public:
     }
     R_Ring_Number r(q, d);
     for (int i = 0; i < d; i++) {
-      r.vec[i] = Reduce(rand(), bound);
+      r.vec[i] = /*rand() % bound;*/Clamp(rand(), bound);
     }
     return r;
   }

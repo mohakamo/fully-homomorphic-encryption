@@ -28,7 +28,7 @@ void FHE_Cipher_Text::Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *
   assert(c2.Get_q() == (*pk)[L + c.second].Get_q());
   R_Ring_Vector c3 = Switch_Key((*pk)[L + c.second], c2);
 
-  if (my_p == 3) {
+  /*  if (my_p == 3) {
     std::cout << "**************** Refresh operation *******************" << std::endl;
     std::cout << "c = ";
     c.first.print();
@@ -43,7 +43,7 @@ void FHE_Cipher_Text::Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *
     std::cout << "c3 = ";
     c3.print();
     std::cout << std::endl;
-  }
+    }*/
 
   c = Pair<R_Ring_Vector, int>(c3, c.second - 1);
 }

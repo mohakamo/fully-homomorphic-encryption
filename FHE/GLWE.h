@@ -61,7 +61,29 @@ typedef R_Ring_Vector GLWE_Ciphertext_Type;
 
 /*** Basic GLWE_Encryption_Scheme ***/
 class GLWE {
-  static long long Choose_q(int mu) {
+  static bool Is_Prime(int n) {
+    int n_sq = sqrt(n);
+    for (int i = 2; i < n_sq; i++) {
+      if (n % i == 0) {
+	return false;
+      }
+    }
+    return true;
+  }
+
+  static long long Choose_q(int mu, int r) {
+    long long n = (1 << mu) - 1;
+    while (n > (1 << (mu - 1))) {
+      if (Is_Prime(n) && n % r == 1) {
+	return n;
+      }
+      n--;
+    }
+    std::cout << "mu = " << mu << std::endl;
+    std::cout << "r = " << r << std::endl;
+    assert(false);
+    return -1;
+
     assert(mu < sizeof(long long) * 8);
     if (mu == 2) {
       return 3;
@@ -211,7 +233,7 @@ class GLWE {
     return res;
     */
     assert(B >= 2);
-    R_Ring_Number res = R_Ring_Number::Uniform_Rand(2, d);
+    R_Ring_Number res = R_Ring_Number::Uniform_Rand(7, d);
     //    R_Ring_Number res = R_Ring_Number(2, d);
     res.Increase_Modul(q);
     //    R_Ring_Number res(q, d);
@@ -234,7 +256,7 @@ class GLWE {
   }
 public:	
   GLWE_Params Setup(int lambda, int mu, GLWE_Type b, int p = 2) const {
-    long long q = Choose_q(mu);
+    long long q = Choose_q(mu, p);
     int n = Choose_n(lambda, mu, b);
     int N = Choose_N(n, q);
     int d = Choose_d(lambda, mu, b);
@@ -393,11 +415,11 @@ public:
     /*std::cout << "dot_product = ";
     dot_product.print();
     std::cout << std::endl;*/
-    //    R_Ring_Number clamped1 = dot_product.Clamp(params.q);
+    R_Ring_Number clamped1 = dot_product.Clamp(params.q);
     /*std::cout << "clamped1 = ";
     clamped1.print();
     std::cout << std::endl;*/
-    R_Ring_Number clamped2 = dot_product.Clamp(params.p);
+    R_Ring_Number clamped2 = clamped1.Clamp(params.p);
     return clamped2;
   }
 };

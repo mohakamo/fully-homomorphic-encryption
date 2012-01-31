@@ -20,7 +20,7 @@ class FHE_Cipher_Text {
 
   R_Ring_Vector Switch_Key(R_Ring_Matrix A, R_Ring_Vector c1);
  public: // for testing purposes
-  R_Ring_Vector Scale(R_Ring_Vector &x, int q, int p, int r);
+  static R_Ring_Vector Scale(R_Ring_Vector &x, int q, int p, int r);
  private:
   void Update_To_Same_Level(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2);
   Pair<R_Ring_Vector, int> Add(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2, bool sign = true);
@@ -91,7 +91,14 @@ class FHE {
     for (int i = 0; i < x.Get_Dimension(); i++) {
       for (int p = 0; p < noof_vectors; p++) {
 	for (int j = 0; j < x.Get_d(); j++) {
-	  res_r[p + i * noof_vectors][j] = ((x[i][j] + (x[i][j] < 0 ? q : 0)) >> p) & 1; 
+	  /* if (x[i][j] < 0) {
+	    std::cout << "x = "; x.print(); std::cout << std::endl;
+	    exit(1);
+	    } */
+	  int n = R_Ring_Number::Clamp(x[i][j], q);
+	  n = n + (n < 0 ? q : 0);
+	  //	  assert(n >= 0 && n < q);
+	  res_r[p + i * noof_vectors][j] = (n >> p) & 1; 
 	}
       }
     }
@@ -177,12 +184,42 @@ class FHE {
     std::vector<R_Ring_Matrix> pk(my_L + 1 + my_L); // first L + 1 slots are devoted to A_0, ..., A_L and next L slots are devoted to tau_(1 -> 0), ..., tau_(L -> L - 1)
     for (int i = my_L; i >= 0; i--) {
       R_Ring_Vector s_i = E.Secret_Key_Gen(params[i]);
+      /* for (int j = 0; j < s_i.Get_Dimension(); j++) {
+	for (int jj = 0; jj < s_i.Get_d(); jj++) {
+	  if (s_i[j][jj] < 0) {
+	    std::cout << "s_" << i << " = "; s_i.print(); std::cout << std::endl;
+	    exit(1);
+	  }
+	}
+	} */
+
       sk[i] = s_i;
       R_Ring_Matrix A_i = E.Public_Key_Gen(params[i], s_i);
       pk[i] = A_i;
       if (i != my_L) {
+	/* for (int j = 0; j < sk[i + 1].Get_Dimension(); j++) {
+	  for (int jj = 0; jj < sk[i + 1].Get_d(); jj++) {
+	    if (sk[i + 1][j][jj] < 0) {
+	      std::cout << "sk[i + 1]" << i << " = "; sk[i + 1].print(); std::cout << std::endl;
+	      exit(1);
+	    }
+	  }
+	  } */
+	
 	R_Ring_Vector s_i_prime = sk[i + 1].Tensor_Product(sk[i + 1]); // from R_{q_j}^{(n_j + 1, 2)} space, i.e. there are n_j * (n_j + 1) element
 	assert(s_i_prime.Get_Dimension() == (sk[i+1].Get_Dimension() * (sk[i+1].Get_Dimension() + 1)) / 2);
+
+	/* for (int j = 0; j < s_i_prime.Get_Dimension(); j++) {
+	  for (int jj = 0; jj < s_i_prime.Get_d(); jj++) {
+	    if (s_i_prime[j][jj] < 0) {
+	      std::cout << "sk[i + 1] = "; sk[i + 1].print(); std::cout << std::endl;
+	      std::cout << "s_i_prime" << " = "; s_i_prime.print(); std::cout << std::endl;
+	      R_Ring_Vector s_i_prime2 = sk[i + 1].Tensor_Product(sk[i + 1]); // from R_{q_j}^{(n_j + 1, 2)} space, i.e. there are n_j * (n_j + 1) element
+	      exit(1);
+	    }
+	  }
+	  } */
+
 	R_Ring_Vector s_i_prime_prime = Bit_Decomposition(s_i_prime, params[i + 1].q);
 	assert(s_i_prime_prime.Get_Dimension() == s_i_prime.Get_Dimension() * ceil(log2(params[i + 1].q)));
 	R_Ring_Matrix tau_i = Switch_Key_Gen(s_i_prime_prime, s_i, params[i]); // give the bigger modul

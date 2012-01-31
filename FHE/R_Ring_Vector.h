@@ -26,7 +26,7 @@ public:
     vec = NULL;
   }
   
-  R_Ring_Vector(int q, int d, int dimension)  {
+  R_Ring_Vector(long long q, int d, int dimension)  {
     vec = NULL;
     Initialize(q, d, dimension);
   }
@@ -61,7 +61,7 @@ public:
     return *this;
   }
 
-  void Initialize(int q, int d, int dimension_) { 
+  void Initialize(long long q, int d, int dimension_) { 
    if (vec != NULL) {
       delete [] vec;
     }
@@ -152,7 +152,7 @@ public:
     return !(*this == c);
   }
   
-  int Get_q(void) const {
+  long long Get_q(void) const {
     assert(dimension != 0);
     return vec[0].Get_q();
   }
@@ -184,10 +184,11 @@ public:
 	res[index++] = vec[i] * r.vec[j];
       }
     }
+    assert(index == new_dimension);
     return res;
   }
 
-  void Increase_Modul(int new_q) {
+  void Increase_Modul(long long new_q) {
     for (int i = 0; i < dimension; i++) {
       vec[i].Increase_Modul(new_q);
     }
