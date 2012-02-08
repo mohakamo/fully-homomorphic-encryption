@@ -61,9 +61,9 @@ typedef R_Ring_Vector GLWE_Ciphertext_Type;
 
 /*** Basic GLWE_Encryption_Scheme ***/
 class GLWE {
-  static bool Is_Prime(int n) {
-    int n_sq = sqrt(n);
-    for (int i = 2; i < n_sq; i++) {
+  static bool Is_Prime(long long n) {
+    long long n_sq = sqrt(n);
+    for (long long i = 2; i < n_sq; i++) {
       if (n % i == 0) {
 	return false;
       }
@@ -72,8 +72,8 @@ class GLWE {
   }
 
   static long long Choose_q(int mu, int r) {
-    long long n = (1 << mu) - 1;
-    while (n > (1 << (mu - 1))) {
+    long long n = (((long long)1) << mu) - 1;
+    while (n > (((long long)1) << (mu - 1))) {
       if (Is_Prime(n) && n % r == 1) {
 	return n;
       }
@@ -81,121 +81,9 @@ class GLWE {
     }
     std::cout << "mu = " << mu << std::endl;
     std::cout << "r = " << r << std::endl;
-    assert(false);
-    return -1;
-
-    assert(mu < sizeof(long long) * 8);
-    if (mu == 2) {
-      return 3;
-    } else if (mu == 3) {
-      return 7;
-    } else if (mu == 4) {
-      return 13;
-    } else if (mu == 5) {
-      return 29;
-    } else if (mu == 6) {
-      return 37;
-    } else if (mu == 7) {
-      return 83;
-    }
-
-    int diff[] = {
-      5,
-      3,
-3,
-9,
-3,
-1,
-3,
-19,
-15,
-1,
-5,
-1,
-3,
-9,
-3,
-15,
-3,
-39,
-5,
-39,
-57,
-3,
-35,
-1,
-5,
-9,
-41,
-31,
-5,
-25,
-45,
-7,
-87,
-21,
-11,
-57,
-17,
-55,
-21,
-115,
-59,
-81,
-27,
-129,
-47,
-111,
-33,
-55,
-5,
-13,
-27,
-55,
-93,
-1,
-57,
-25,
-59,
-49,
-5,
-19,
-23,
-19,
-35,
-231,
-93,
-69,
-35,
-97,
-15,
-33,
-11,
-67,
-65,
-51,
-57,
-55,
-35,
-19,
-35,
-67,
-299,
-1,
-33,
-45,
-83,
-25,
-3,
-15,
-17,
-141,
-51,
-115,
-      15};
-    if (mu >= 8) {
-      return (1 << mu) - diff[mu - 8];
-    }
+    // did not find modul that is equal to 1 mod r
+    throw false;
+    //    assert(false);
     return -1;
   }
  public:
@@ -216,7 +104,7 @@ class GLWE {
   }
  private:
   static int Choose_N(int n, long long q) {
-    return ceil((2 * n + 1) * log((double)q));
+    return ceil((2 * n + 1) * log2((double)q));
   }
 
   static R_Ring_Number Noise(long long q, int d, long long B, int p) {
@@ -233,15 +121,15 @@ class GLWE {
     return res;
     */
     assert(B >= 2);
-    R_Ring_Number res = R_Ring_Number::Uniform_Rand(7, d);
-    //    R_Ring_Number res = R_Ring_Number(2, d);
+    R_Ring_Number res = R_Ring_Number::Uniform_Rand(B, d);
+    // R_Ring_Number res = R_Ring_Number(2, d);
     res.Increase_Modul(q);
     //    R_Ring_Number res(q, d);
     return res;
   }
 
   static int Choose_B(long long q, int d, int N, int p) {
-    int B = floor((q - 2) / 2.0 / p / d / (double)N);
+    /*    long long B = floor((q - 2) / 2.0 / p / d / (double)N);
     if (B <= 1) {
       std::cout << "suggested q : q / log2(q) >= " << 4 * p * d * N / ceil(log2(1.0 * q)) + 2 << std::endl;
       std::cout << "q = " << q << std::endl;
@@ -250,13 +138,14 @@ class GLWE {
       std::cout << "B = " << B << std::endl;
       std::cout << "p = " << p << std::endl;
     }
-    assert(B > 1);
+    assert(B > 1); */
 
-    return B;
+    return 2;//B > 2 ? B : 2;
   }
 public:	
   GLWE_Params Setup(int lambda, int mu, GLWE_Type b, int p = 2) const {
-    long long q = Choose_q(mu, p);
+    long long q;
+    q = Choose_q(mu, p);
     int n = Choose_n(lambda, mu, b);
     int N = Choose_N(n, q);
     int d = Choose_d(lambda, mu, b);

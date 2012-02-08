@@ -58,6 +58,11 @@ public:
     for (int i = 0; i < dimension; i++) {
       vec[i] = r.vec[i];
     }
+    if (dimension != 0 && Get_q() != r.Get_q()) {
+      for (int i = 0; i < dimension; i++) {
+	vec[i].Change_Modul(r.Get_q());
+      }
+    }
     return *this;
   }
 
@@ -162,6 +167,11 @@ public:
     return vec[0].Get_d();
   }
   
+  int Get_Field_Expansion(void) const {
+    assert(dimension != 0);
+    return vec[0].Get_Field_Expansion();
+  }
+
   // Returns the vector of elements start_index, ..., end_index
   R_Ring_Vector Get_Sub_Vector(int start_index, int end_index) {
     assert(end_index >= start_index && start_index >= 0 && end_index < dimension);
@@ -194,7 +204,13 @@ public:
     }
   }
 
-  static R_Ring_Vector Uniform_Rand(int q, int d, int dimension, int bound = -1) {
+  void Decrease_Modul(long long new_q) {
+    for (int i = 0; i < dimension; i++) {
+      vec[i].Decrease_Modul(new_q);
+    }
+  }
+
+  static R_Ring_Vector Uniform_Rand(long long  q, int d, int dimension, long long bound = -1) {
     R_Ring_Vector res(q, d, dimension);
     for (int i = 0; i < dimension; i++) {
       res[i] = R_Ring_Number::Uniform_Rand(q, d, bound);
@@ -202,13 +218,13 @@ public:
     return res;
   }
 
-  void Clamp(int modul) {
+  void Clamp(long long modul) {
     for (int i = 0; i < dimension; i++) {
       vec[i].Clamp(modul);
     }
   }
 
-  R_Ring_Vector Get_Clamped(int modul) {
+  R_Ring_Vector Get_Clamped(long long modul) {
     R_Ring_Vector res = *this;
     res.Clamp(modul);
     return res;

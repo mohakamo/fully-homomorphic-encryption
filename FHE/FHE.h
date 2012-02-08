@@ -16,44 +16,56 @@ typedef Pair<R_Ring_Vector, int> FHE_Ciphertext_Type;
 class FHE_Cipher_Text {
   Pair<R_Ring_Vector, int> my_cipher;
   FHE_Public_Key_Type *my_pk;
+  FHE_Secret_Key_Type *my_sk;
   int my_p;
 
   R_Ring_Vector Switch_Key(R_Ring_Matrix A, R_Ring_Vector c1);
  public: // for testing purposes
-  static R_Ring_Vector Scale(R_Ring_Vector &x, int q, int p, int r);
- private:
+  static R_Ring_Vector Scale(R_Ring_Vector &x, long long q, long long p, int r);
   void Update_To_Same_Level(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2);
-  Pair<R_Ring_Vector, int> Add(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2, bool sign = true);
-  Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2);
-  Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> &c1, int n);
+ private:
+  Pair<R_Ring_Vector, int> Add(Pair<R_Ring_Vector, int> c1, Pair<R_Ring_Vector, int> c2, bool sign = true, FHE_Secret_Key_Type *sk = NULL);
+  Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> c1, Pair<R_Ring_Vector, int> c2, FHE_Secret_Key_Type *sk = NULL);
+  Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> c1, long long n, FHE_Secret_Key_Type *sk = NULL);
  public:
- FHE_Cipher_Text(const Pair<R_Ring_Vector, int> &cipher, FHE_Public_Key_Type *pk, int p = 2) : my_cipher(Pair<R_Ring_Vector, int>(R_Ring_Vector(cipher.first), cipher.second)), my_pk(pk), my_p(p) {}
- FHE_Cipher_Text(const FHE_Cipher_Text &c) : my_cipher(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second), my_pk(c.my_pk), my_p(c.my_p) {}
- FHE_Cipher_Text() : my_cipher(R_Ring_Vector(), 0), my_pk(NULL), my_p(0) {}
+ FHE_Cipher_Text(const Pair<R_Ring_Vector, int> &cipher, FHE_Public_Key_Type *pk, int p = 2, FHE_Secret_Key_Type *sk = NULL) :
+  my_cipher(Pair<R_Ring_Vector, int>(R_Ring_Vector(cipher.first), cipher.second)), my_pk(pk), my_p(p), my_sk(sk) {}
+ FHE_Cipher_Text(const FHE_Cipher_Text &c) : my_cipher(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second), my_pk(c.my_pk), my_p(c.my_p), my_sk(c.my_sk) {}
+ FHE_Cipher_Text() : my_cipher(R_Ring_Vector(), 0), my_pk(NULL), my_p(0), my_sk(NULL) {}
 
-  /*  FHE_Cipher_Text& operator =(const FHE_Cipher_Text &c) {
+ FHE_Cipher_Text& operator =(const FHE_Cipher_Text &c) {
     my_cipher = Pair<R_Ring_Vector, int>(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second);
     my_pk = c.my_pk;
+    my_p = c.my_p;
+    my_sk = c.my_sk;
     return *this;
-    }*/
+ }
   
   FHE_Cipher_Text operator +(FHE_Cipher_Text &c) {
     assert(my_pk == c.my_pk); // addresses comparison
-    return FHE_Cipher_Text(Add(my_cipher, c.my_cipher), my_pk, my_p);
+    return FHE_Cipher_Text(Add(my_cipher, c.my_cipher, true, my_sk), my_pk, my_p, my_sk);
   }
 
   FHE_Cipher_Text operator -(FHE_Cipher_Text &c) {
     assert(my_pk == c.my_pk);
-    return FHE_Cipher_Text(Add(my_cipher, c.my_cipher, false), my_pk, my_p);
+    return FHE_Cipher_Text(Add(my_cipher, c.my_cipher, false, my_sk), my_pk, my_p, my_sk);
+  }
+  
+  FHE_Cipher_Text operator -() { // assuming the field operations keep numbers in range [-(q - 1) / 2; (q - 1) / 2]
+    FHE_Cipher_Text result = *this;
+    for (int i = 0; i < result.my_cipher.first.Get_Dimension(); i++) {
+      result.my_cipher.first[i] = -result.my_cipher.first[i];
+    }
+    return result;
   }
 
-  FHE_Cipher_Text operator *(int n) {
-    return FHE_Cipher_Text(Mult(my_cipher, n), my_pk, my_p);
+  FHE_Cipher_Text operator *(long long n) {
+    return FHE_Cipher_Text(Mult(my_cipher, n, my_sk), my_pk, my_p, my_sk);
   }
   
   FHE_Cipher_Text operator *(FHE_Cipher_Text &c) {
     assert(my_pk == c.my_pk); // addresses, comparison
-    return FHE_Cipher_Text(Mult(my_cipher, c.my_cipher), my_pk, my_p);
+    return FHE_Cipher_Text(Mult(my_cipher, c.my_cipher, my_sk), my_pk, my_p, my_sk);
   }
 
   Pair<R_Ring_Vector, int> Copy_Cipher(void) const {
@@ -66,7 +78,7 @@ class FHE_Cipher_Text {
     return GLWE::Decrypt(params[j], sk[j], my_cipher.first);
   }
 
-  void Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *pk);
+  void Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *pk, FHE_Secret_Key_Type *sk = NULL);
   void print(void) {
     std::cout << "(";
     my_cipher.first.print();
@@ -77,14 +89,18 @@ class FHE_Cipher_Text {
     int j = my_cipher.second;
     return GLWE::Get_Noise(params[j], sk[j], my_cipher.first);
   }
-  Pair<R_Ring_Vector, int> Get_Cipher() {
+  Pair<R_Ring_Vector, int>& Get_Cipher() {
     return my_cipher;
+  }
+
+  void Add_Secret_Key_Info(FHE_Secret_Key_Type *sk) {
+    my_sk = sk;
   }
 };
 
 class FHE {
  public: // for testing purposes
-  static R_Ring_Vector Bit_Decomposition(R_Ring_Vector x, int q) {
+  static R_Ring_Vector Bit_Decomposition(R_Ring_Vector x, long long q) {
     assert(q == x.Get_q());
     int noof_vectors = ceil(log2(q));
     R_Ring_Vector res_r(q, x.Get_d(), noof_vectors * x.Get_Dimension());
@@ -95,7 +111,7 @@ class FHE {
 	    std::cout << "x = "; x.print(); std::cout << std::endl;
 	    exit(1);
 	    } */
-	  int n = R_Ring_Number::Clamp(x[i][j], q);
+	  long long n = R_Ring_Number::Clamp(x[i][j], q);
 	  n = n + (n < 0 ? q : 0);
 	  //	  assert(n >= 0 && n < q);
 	  res_r[p + i * noof_vectors][j] = (n >> p) & 1; 
@@ -105,7 +121,7 @@ class FHE {
     return res_r;
   }
   
-  static R_Ring_Vector Powersof2(R_Ring_Vector x, int q) {
+  static R_Ring_Vector Powersof2(R_Ring_Vector x, long long q) {
     int noof_vectors = ceil(log2(q));
     R_Ring_Vector res_r(q, x.Get_d(), noof_vectors * x.Get_Dimension());
     int index;
@@ -136,6 +152,42 @@ class FHE {
     return 6;
   }
 
+  long long Choose_Noise_Bound(long long p, FHE_Params &params) { // suppose that all n are the same (for LWE scheme)
+    double max_fraq = 0;
+    int d = params[params.size() - 1].d;
+    double field_expansion = sqrt(d);
+    int L = params.size() - 1;
+    int n = params[L].n;
+    for (int i = 1; i < params.size(); i++) {
+      double fraq = params[i].q / (double)params[i - 1].q;
+      if (fraq > max_fraq) {
+	max_fraq = fraq;
+      }
+    }
+    //    assert(max_fraq > 0);
+    if (max_fraq <= 0) {return -1;}
+    long long noise_UB = (max_fraq / 2 / field_expansion - 1) / p / d / (2 * params[L].n + 1) / ceil(log2(params[L].q)); // noise upper bound
+    if (noise_UB <= 1) {return -1;}
+    long long noise_LB_temp = (2 * d * field_expansion * (n + 1) * n / 2 * ceil(log2(params[L].q)) - 1) / d; // noise lower bound without denominator
+    long long noise_LB = 0; // noise lower bound
+
+    // computing denominators and trying to find lower bound
+    for (int j = 1; j < params.size(); j++) {
+      long long noise_LB_den = p * (2 * params[L].n + 1) * ceil(log2(params[L].q)) - 4 * (params[L].n + 1) * params[L].n / 2 * ceil(log2(params[j].q)) * ceil(log2(params[j - 1].q));
+      long long potential_LB = noise_LB_temp / noise_LB_den;
+      if (noise_LB_den > 0 && potential_LB > noise_LB) {
+	noise_LB = potential_LB;
+      } else if (noise_LB_den < 0 && -potential_LB < noise_UB) {
+	noise_UB = -potential_LB;
+      }
+    }
+    std::cout << "Theoretical noise bound = [" << noise_LB << ", " << noise_UB << "]" << std::endl;
+    if (noise_LB > noise_UB || noise_UB <= 1) {
+      return -1;
+    }
+    return noise_LB + 1 > 1 ? noise_LB + 1 : 2; // trying to make noise as small as possible
+  }
+
   GLWE E;
   int my_L;
  public:
@@ -155,22 +207,101 @@ class FHE {
     int n = E.Choose_n(lambda, 0, b);
     int mu = ceil(4 * sqrt((double)d));
     
-    while (q_size < 8 * sizeof(long long) && ((1 << q_size) - 2) / q_size < 4 * p * d * (2 * n + 1)) {
+    while (q_size < 8 * sizeof(long long) && ((1 << q_size) - 2) / q_size < 2 * p * d * (2 * n + 1)) {
       q_size++;
     }
-    // q_size++;
-    q_size += 4;
-    //    std::cout << "Chosen initial modul size = " << q_size << std::endl;
+    q_size += 2;
+    //    q_size += 4;
+    mu += 9;
+    q_size = 10;
+    mu = 12;
+
+    /*** Choosing modules step ***/
+    for (int q0 = 5; q0 < 30; q0++) {
+      for (int mu = 3; L * mu + q0 < 31 && mu < q0; mu++) {
+
+	std::vector<GLWE_Params> try_params(L + 1);
+	for (int i = 0; i <= L; i++) {
+	  int modul_size = q_size + i * mu;
+	  try {
+	    try_params[i] = E.Setup(lambda, modul_size, b, p); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
+	  } catch (bool b) {
+	    std::cout << "Exception caught" << std::endl;
+	    continue;
+	  }
+	}
+	std::cout << "q0 = " << q0 << ", mu = " << mu << " ";
+
+	if (Choose_Noise_Bound(p, try_params) > 0) {
+	  std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl;
+	}
+      }
+    }
+    q_size = 19;
+    mu = 18;
+    int B = 3;
+    /*
+    //    mu = 9;
+    int mu_low_bound = mu;
+    while ((q_size + (L - 1) * mu) * 2 >= sizeof(long long) * 8 - 1 && mu >= mu_low_bound) {
+      mu--;
+      std::cout << "!";
+    }
+    */
     
     std::vector<GLWE_Params> params(L + 1);
     for (int i = 0; i <= L; i++) {
-      params[i] = E.Setup(lambda, q_size + i * mu, b, p); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
+      int modul_size = q_size + i * mu;
+      //      if (modul_size * 2 >= sizeof(long long) * 8 - 1) {
+      //	std::cout << "ALARM: moduls_size = " << modul_size << " > " << (sizeof(long long) * 8 - 1) / 2 << std::endl;
+      //	assert(modul_size * 2 < sizeof(long long) * 8 - 1); // to make addition, we need module twice smaller
+      //      }
+      params[i] = E.Setup(lambda, modul_size, b, p); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
     }
+    /*
+    long long min_fraq = ceil(params[L].q / (double)params[L - 1].q);
+    for (int i = L - 1; i >= 1; i--) {
+      if (ceil(params[i].q / (double)params[i - 1].q) < min_fraq) {
+	min_fraq = ceil(params[i].q / (double)params[i - 1].q);
+      }
+    }
+    long long B = 1 + p * params[L].d * params[L].N * params[L].B;
+    long long B_upper_bound = min_fraq / 2 / sqrt(1.0 * d);
+    long long B_lower_bound = 2 * (sqrt(1.0 * d) * ((params[L].n * (params[L].n + 1)) / 2) * ceil(log2(params[L].q)) * (params[L].d + 2 * sqrt(1.0 * params[L].d) * params[L].B));
+    long long Bx = 2;
+    if (B < B_lower_bound) {
+      std::cout << "Adjusting noise " << std::endl;
+      std::cout << "params[L].d = " << params[L].d << ", params[L].N = " << params[L].N << ", params[L].B = " << params[L].B << std::endl;
+      while (B < B_lower_bound && Bx < params[0].q) {
+	std::cout << "B = " << B << " not in [" << B_lower_bound << ", " << B_upper_bound << "], Bx = " << Bx << std::endl;
+	B_lower_bound = 2 * (sqrt(1.0 * d) * ((params[L].n * (params[L].n + 1)) / 2) * ceil(log2(params[L].q)) * (params[L].d + 2 * sqrt(1.0 * params[L].d) * Bx));
+	B = 1 + p * params[L].d * params[L].N * Bx;
+	if (B_lower_bound < B_upper_bound && B < B_upper_bound && B > B_lower_bound) {
+	  break;
+	}
+	if (B_lower_bound > B_upper_bound) {
+	  break;
+	}
+	Bx++;
+      }
+    }
+    
+    if (B > B_upper_bound || B < B_lower_bound) {
+      std::cout << "B = " << B << " not int [" << B_lower_bound << ", " << B_upper_bound << "]" << std::endl;
+      std::cout << "min_fraq = " << min_fraq << std::endl;
+      std::cout << "n = " << params[L].n << ", log(q) = " << ceil(log2(params[L].q)) << ", d = " << params[L].d << ", B = " << params[0].B << std::endl;
+      exit(1);
+    }
+    //    int B = params[0].q - 2);
+    */
+			     
     for (int i = 0; i < L; i++) {
       params[i].d = params[L].d;
       // params[i].noise = params[L].noise;
-      params[L - i].B = params[0].B;
+      params[L - i].B = B;//params[0].B;
     }
+    // print noise bounds parameters and assert if the interval is empty
+    Choose_Noise_Bound(p, params);
     // std::cout << "B = " << params[0].B << std::endl;
     return params;
   }

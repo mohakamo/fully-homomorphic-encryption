@@ -39,6 +39,11 @@ public:
   }
   
   R_Ring_Number(const R_Ring_Number &v) {
+    if (v.q == 0 || v.d == 0) {
+      q = d = 0;
+      vec = NULL;
+      return;
+    }
     Initialize(v.q, v.d);
     for (int i = 0; i < d; i++) {
       vec[i] = v.vec[i];
@@ -171,7 +176,7 @@ public:
     for (int i = 0; i < d; i++) {
       if (v.vec[i] != 0) {
 	for (int j = 0; j < d; j++) {
-	  res_v.vec[i + j] = Reduce(res_v.vec[i + j] + vec[j] * v.vec[i]);
+	  res_v.vec[i + j] = Reduce(res_v.vec[i + j] + Reduce(vec[j] * v.vec[i]));
 	}
       }
     }
@@ -247,8 +252,24 @@ public:
     return result;
   }
 
+  void Change_Modul(long long new_q) {
+    assert(new_q > 0);
+    q = new_q;
+    for (int i = 0; i < d; i++) {
+      vec[i] = Reduce(vec[i]);
+    }
+  }
+
   void Increase_Modul(long long new_q) {
     assert(q <= new_q);
+    q = new_q;
+  }
+
+  void Decrease_Modul(long long new_q) {
+    assert(q >= new_q);
+    for (int i = 0; i < d; i++) {
+      vec[i] = Reduce(vec[i]);
+    }
     q = new_q;
   }
 
@@ -299,12 +320,14 @@ public:
 	  res_v[i] = value[j];
 	}
       }
-      if (fabs(res_v[i] - tmp_d) > r) {
+      if (fabs(res_v[i] - tmp_d) > r + 1e-5) {
 	std::cout << "q = " << q << ", p = " << p << ", tmp_d = " << tmp_d << ", vec[i] = " << vec[i] << ", tmp = " << tmp << ", res_v[i] = " << res_v[i] << ", r = " << r << ", fraq = " << fraq << std::endl;
 	std::cout << "res_v[i] - tmp_d = " << res_v[i] - tmp_d << std::endl;
 	std::cout << "value[0] - tmp_d = " << value[0] - tmp_d << std::endl;
 	std::cout << "value[1] - tmp_d = " << value[1] - tmp_d << std::endl;
 	std::cout << "value[2] - tmp_d = " << value[2] - tmp_d << std::endl;
+	std::cout << "value[3] - tmp_d = " << value[3] - tmp_d << std::endl;
+	std::cout << "value[4] - tmp_d = " << value[4] - tmp_d << std::endl;
 
 	std::cout << "0.5 * r = " << 0.5 * r << std::endl;
 	
@@ -391,6 +414,18 @@ public:
 
   long long* Get_vec(void) const {
     return vec;
+  }
+
+  double Get_Field_Expansion(void) const {
+    return sqrt((double)Get_d());
+  }
+  
+  long long Get_Norm(void) const {
+    long long result = 0;
+    for (int i = 0; i < d; i++) {
+      result += abs(vec[i]);
+    }
+    return result;
   }
 };
 

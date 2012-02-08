@@ -1,4 +1,5 @@
 #include "FHE.h"
+#include "LSS.h"
 #include <iostream>
 
 enum FHE_Operation {FHE_Addition = 1, FHE_Multiplication};
@@ -624,31 +625,224 @@ private:
     return true;
   }
 
-  bool test_FHE_One_Add(GLWE_Type type, FHE_Operation operation_type, int modul = 2) {
+  bool test_Multiple_Refresh(GLWE_Type type) {
+    std::cout << "test_Multiple_Refresh " << ((type == LWE_Based) ? "LWE " : "RLWE ");
+    FHE fhe;
+    int modules[] = {97, 101, 103, 107, 109};
+    //    int modules[] = {131, 619, 199, 383, 281};
+
+    int L = 2;
+
+    for (int t = 0; t < 1; t++) {
+      int modul = modules[t];
+    FHE_Params params = fhe.Setup(2, L, type, modul);
+    Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
+    for (int s = 0; s < 30; s++) {
+    long long *array_m;
+    array_m = new long long [params[0].d];
+    for (int i = 0; i < params[0].d; i++) {
+      array_m[i] = R_Ring_Number::Clamp(rand(), modul);
+    }
+        
+    R_Ring_Number message(modul, params[0].d, array_m);
+    FHE_Cipher_Text c = fhe.Encrypt(params, &sk_pk.second, message);
+    c.Add_Secret_Key_Info(&sk_pk.first);
+    assert(c.Decrypt(params, sk_pk.first) == message);
+    for (int i = 0; i < L; i++) {
+      int dimension = c.Get_Cipher().first.Get_Dimension();
+      R_Ring_Vector cv(c.Get_Cipher().first.Get_q(), c.Get_Cipher().first.Get_d(), (dimension * (dimension + 1)) / 2);
+      for (int j = 0; j < dimension; j++) {
+	cv[j] = c.Get_Cipher().first[j];
+      }
+      FHE_Cipher_Text new_cipher(Pair<R_Ring_Vector, int>(cv, c.Get_Cipher().second), &sk_pk.second, modul);
+      new_cipher.Add_Secret_Key_Info(&sk_pk.first);
+      new_cipher.Refresh(new_cipher.Get_Cipher(), &sk_pk.second, &sk_pk.first);
+      R_Ring_Number m = new_cipher.Decrypt(params, sk_pk.first);
+      if (m != message) {
+	std::cout << "Encryption after first refresh failed" << std::endl;
+	std::cout << "Modul = " << modul << std::endl;
+	std::cout << "Noof levels = " << L << std::endl;
+	std::cout << "#attempt = " << s << std::endl;
+	std::cout << "level = " << i << std::endl;
+	std::cout << "new_cipher.level = " << new_cipher.Get_Cipher().second << std::endl;
+	std::cout << "Initial message = "; message.print(); std::cout << std::endl;
+	std::cout << "Decrypted message = "; m.print(); std::cout << std::endl;
+	std::cout << "Encrypt(initial message) = "; c.Get_Cipher().first.print(); std::cout << std::endl;
+	std::cout << "new_cipher = "; new_cipher.Get_Cipher().first.print(); std::cout << std::endl;
+	std::cout << "Params = "; for (int j = 0; j < params.size(); j++) {params[j].print(); if (j + 1 != params.size()) std::cout << ", ";} std::cout << std::endl;
+	std::cout << "Initial noise = "; c.Get_Cipher().first.Dot_Product(sk_pk.first[c.Get_Cipher().second]).print(); std::cout << std::endl;
+	std::cout << "New noise = "; new_cipher.Get_Cipher().first.Dot_Product(sk_pk.first[new_cipher.Get_Cipher().second]).print(); std::cout << std::endl;
+	FAIL();
+	return false;
+      }
+      assert(new_cipher.Get_Cipher().second + 1 == c.Get_Cipher().second);
+      c = new_cipher;
+    }}}
+    PASS();
+    return true;
+  }
+
+  bool test_FHE_Two_Mult(GLWE_Type type) {
+    std::cout << "test_Two_Mult " << ((type == LWE_Based) ? "LWE " : "RLWE ");
+    FHE fhe;
+    int modules[] = {97, 7, 11, 3, 5};
+    int L = 2;
+
+    for (int t = 0; t < 1; t++) {
+      int modul = modules[t];
+      FHE_Params params = fhe.Setup(2, L, type, modul);
+      Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
+      for (int s = 0; s < 30; s++) {
+	long long *array_m[3];
+	R_Ring_Number message[3];
+	FHE_Cipher_Text c[3];
+	for (int j = 0; j < 3; j++) {
+	  array_m[j] = new long long [params[0].d];
+	  for (int i = 0; i < params[0].d; i++) {
+	    array_m[j][i] = R_Ring_Number::Clamp(rand(), modul);
+	  }
+	  message[j] = R_Ring_Number(modul, params[0].d, array_m[j]);
+	  c[j] = fhe.Encrypt(params, &sk_pk.second, message[j]);
+	  c[j].Add_Secret_Key_Info(&sk_pk.first);
+	  assert(c[j].Decrypt(params, sk_pk.first) == message[j]);
+	}
+
+	for (int j = 0; j < 3; j++) {
+	  delete [] array_m[j];
+	}
+	
+	// first level of addition
+	FHE_Cipher_Text res_c = c[0] * c[1];
+	R_Ring_Number res_m = message[0] * message[1];
+	R_Ring_Number res_m_decr = res_c.Decrypt(params, sk_pk.first);
+	
+	if (res_m_decr != res_m) {
+	  std::cout << "One multiplication failed to decrypt" << std::endl;
+	  for (int j = 0; j < 2; j++) {
+	    std::cout << "message" << j + 1 << " = "; message[j].print(); std::cout << std::endl;
+	  }
+	  std::cout << "res_m = "; res_m.print(); std::cout << std::endl;
+	  std::cout << "Decrypt(res_m) = "; res_m_decr.print(); std::cout << std::endl;
+	  std::cout << "Params = "; for (int j = 0; j < params.size(); j++) {params[j].print(); if (j + 1 != params.size()) std::cout << ", ";} std::cout << std::endl;
+
+	  std::cout << "<c1, sk> = " << c[0].Get_Cipher().first.Dot_Product(sk_pk.first[c[0].Get_Cipher().second]).Get_Norm() << std::endl;
+	  std::cout << "<c2, sk> = " << c[1].Get_Cipher().first.Dot_Product(sk_pk.first[c[1].Get_Cipher().second]).Get_Norm() << std::endl;
+	  FAIL();
+	  return false;
+	}
+
+	FHE_Cipher_Text res_c2 = res_c * c[2];
+	R_Ring_Number res_m2 = res_m * message[2];
+	R_Ring_Number res_m_decr2 = res_c2.Decrypt(params, sk_pk.first);
+	if (res_m_decr2 != res_m2) {
+	  std::cout << "Fail on second mult" << std::endl;
+	  std::cout << "Attempt #" << s << std::endl;
+	  std::cout << "Message modul " << modul << std::endl;
+	  std::cout << "Params = "; for (int j = 0; j < params.size(); j++) {params[j].print(); if (j + 1 != params.size()) std::cout << ", ";} std::cout << std::endl;
+
+	  for (int j = 0; j < 3; j++) {
+	    std::cout << "message" << j << " = "; message[j].print(); std::cout << std::endl;
+	  }
+	  std::cout << "m1 * m2 * m3 = "; res_m2.print(); std::cout << std::endl;
+	  std::cout << "Decr(Encr(m1) * Encr(m2) * Encr(m3)) = "; res_m_decr2.print(); std::cout << std::endl;
+	  std::cout << "m1 * m2 = "; res_m.print(); std::cout << std::endl;
+	  std::cout << "Decr(Encr(m1) * Encr(m2)) = "; res_m_decr.print(); std::cout << std::endl;
+	  std::cout << "Decr(Encr(m3)) = "; c[2].Decrypt(params, sk_pk.first).print(); std::cout << std::endl;
+	  int dimension = c[2].Get_Cipher().first.Get_Dimension();
+	  R_Ring_Vector c3(c[2].Get_Cipher().first.Get_q(), c[2].Get_Cipher().first.Get_d(), (dimension * (dimension + 1)) / 2);
+	  for (int j = 0; j < dimension; j++) {
+	    c3[j] = c[2].Get_Cipher().first[j];
+	  }
+	  FHE_Cipher_Text res_c3(Pair<R_Ring_Vector, int>(c3, c[2].Get_Cipher().second), &sk_pk.second, modul);
+	  res_c3.Refresh(res_c3.Get_Cipher(), &sk_pk.second);
+	  std::cout << "Decr(Refresh(Encr(m3))) = "; res_c3.Decrypt(params, sk_pk.first).print(); std::cout << std::endl;
+	  FHE_Cipher_Text res_c4 = res_c * res_c3;
+	  assert(res_c4.Decrypt(params, sk_pk.first) == res_m_decr2);
+	  assert(res_c3.Get_Cipher().first.Get_q() == res_c.Get_Cipher().first.Get_q());
+	  dimension = res_c3.Get_Cipher().first.Get_Dimension();
+
+	  std::cout << "Noise on first mult:" << std::endl << "For c1 = " << c[0].Get_Cipher().first.Dot_Product(sk_pk.first[c[0].Get_Cipher().second]).Get_Norm() << std::endl << "For c2 = " << c[1].Get_Cipher().first.Dot_Product(sk_pk.first[c[1].Get_Cipher().second]).Get_Norm() << std::endl << "For c3 = " << c[2].Get_Cipher().first.Dot_Product(sk_pk.first[c[2].Get_Cipher().second]).Get_Norm() << std::endl;
+	  
+	  long long noise = res_c.Get_Cipher().first.Dot_Product(sk_pk.first[res_c.Get_Cipher().second]).Get_Norm();
+	  std::cout << "Noise after second mult = " << noise << std::endl;
+	  if (noise * noise * sqrt(res_c.Get_Cipher().first.Get_d()) > res_c.Get_Cipher().first.Get_q() / 2) {
+	    std::cout << "Noise introduced by first multiplication is way too big" << std::endl;
+	    std::cout << "Should have B * B * sqrt(d) = " << noise * noise * sqrt(res_c.Get_Cipher().first.Get_d()) << std::endl << " less than q / 2 = " << res_c.Get_Cipher().first.Get_q() / 2 << std::endl;
+	  }
+	  R_Ring_Vector c5(res_c3.Get_Cipher().first.Get_q(), res_c3.Get_Cipher().first.Get_q(), (dimension * (dimension + 1)) / 2);
+	  int index = 0;
+	  for (int i = 0; i < dimension; i++) {
+	    c5[index++] = res_c.Get_Cipher().first[i] * res_c3.Get_Cipher().first[i];
+	    for (int j = i + 1; j < dimension; j++) {
+	      c5[index++] = res_c.Get_Cipher().first[i] * res_c3.Get_Cipher().first[j] + res_c.Get_Cipher().first[j] * res_c3.Get_Cipher().first[i];
+	    }
+	    std::cout << index << " ";
+	  }
+	  std::cout << std::endl;
+	  R_Ring_Vector &sk = sk_pk.first[res_c3.Get_Cipher().second];
+	  R_Ring_Vector sk_tensored = sk.Tensor_Product(sk);
+	  std::cout << "<Encr(m1) * Encr(m2) * Encr(m3), sk> = ";  c5.Dot_Product(sk_tensored).print(); std::cout << " (mod ) " << modul << " = "; c5.Dot_Product(sk_tensored).Clamp(modul).print(); std::cout << std::endl;
+	  R_Ring_Number dot1 = res_c.Get_Cipher().first.Dot_Product(sk_pk.first[res_c.Get_Cipher().second]);
+	  std::cout << "<Encr(m1) * Encr(m2), sk> = "; dot1.Clamp(modul).print(); std::cout << std::endl;
+	  assert(res_c3.Get_Cipher().second == res_c.Get_Cipher().second);
+	  R_Ring_Number dot2 = res_c3.Get_Cipher().first.Dot_Product(sk_pk.first[res_c3.Get_Cipher().second]);
+	  std::cout << "<Encr(m3), sk> = "; dot2.print(); std::cout << " = "; dot2.Clamp(modul).print(); std::cout << std::endl;
+
+	  std::cout << "<Encr(m1) * Encr(m2), sk> * <Encr(m3), sk> = "; (dot1 * dot2).print(); std::cout << " = "; (dot1 * dot2).Clamp(modul).print(); std::cout << std::endl;
+
+	  std::cout << "Clumsy numbers:" << std::endl;
+	  std::cout << "sk = "; sk.print(); std::cout << " mod " << sk.Get_q() << std::endl;
+	  std::cout << "sk_tensored = "; sk_tensored.print(); std::cout << " mod " << sk_tensored.Get_q() << std::endl;
+	  std::cout << "c' = "; res_c.Get_Cipher().first.print(); std::cout << " mod " << res_c.Get_Cipher().first.Get_q() << std::endl;
+	  std::cout << "c'' = "; res_c3.Get_Cipher().first.print(); std::cout << " mod " << res_c3.Get_Cipher().first.Get_q() << std::endl;
+	  std::cout << "c' tens c''"; c5.print(); std::cout << std::endl;
+	  
+	  FAIL();
+	  return false;
+	}
+    }}
+    PASS();
+    return true;
+  }    
+
+  bool test_FHE_One_Add(GLWE_Type type, FHE_Operation operation_type, int modul = 2, int noof_operations = 1) {
+    std::cout << ((type == LWE_Based) ? "LWE " : "RLWE ");
+    assert(noof_operations >= 1 && noof_operations <= 2);
     FHE fhe;
 
     for (int ii = 0; ii < 30; ii++) {
       FHE_Params params = fhe.Setup(2, 2, type, modul);
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
     
-    long long *array_m[2];
-    for (int j = 0; j < 2; j++) {
+    long long *array_m[3];
+    for (int j = 0; j < 3; j++) {
       array_m[j] = new long long [params[0].d];
       for (int i = 0; i < params[0].d; i++) {
 	array_m[j][i] = R_Ring_Number::Clamp(rand(), modul);
       }
     }
         
-    R_Ring_Number message1(modul, params[0].d, array_m[0]), message2(modul, params[0].d, array_m[1]), message3(modul, params[0].d);
+    R_Ring_Number message1(modul, params[0].d, array_m[0]), message2(modul, params[0].d, array_m[1]), message4(modul, params[0].d, array_m[2]), message3(modul, params[0].d);
     if (operation_type == FHE_Addition) {
-      message3 = (message1 + message2);
+      if (noof_operations == 1) {
+	message3 = (message1 + message2);
+      } else if (noof_operations == 2) {
+	message3 = (message1 + message2 + message4);
+      }
       message3.Clamp(modul);
     } else if (operation_type == FHE_Multiplication) {
-      message3 = (message1 * message2);
+      if (noof_operations == 1) {
+	message3 = (message1 * message2);
+      } else if (noof_operations == 2) {
+	message3 = (message1 * message2 * message4);
+      }
       message3.Clamp(modul);
     }
      
-    FHE_Cipher_Text c1 = fhe.Encrypt(params, &sk_pk.second, message1), c2 = fhe.Encrypt(params, &sk_pk.second, message2);
+    FHE_Cipher_Text c1 = fhe.Encrypt(params, &sk_pk.second, message1), c2 = fhe.Encrypt(params, &sk_pk.second, message2), c3 = fhe.Encrypt(params, &sk_pk.second, message4);
+    c1.Add_Secret_Key_Info(&sk_pk.first);
+    c2.Add_Secret_Key_Info(&sk_pk.first);
+    c3.Add_Secret_Key_Info(&sk_pk.first);
     R_Ring_Number m1 = c1.Decrypt(params, sk_pk.first), m2 = c2.Decrypt(params, sk_pk.first);
     if (m1 != message1 || m2 != message2) {
       std::cout << "m1 = "; m1.print(); std::cout << std::endl;
@@ -661,13 +855,40 @@ private:
     }
     FHE_Cipher_Text res_c;
     if (operation_type == FHE_Addition) {
+      if (noof_operations == 2) {
+	c1 = c1 + c3;
+      }
       res_c = c1 + c2;
     } else if (operation_type == FHE_Multiplication) {
-      res_c = c1 * c2;
+      if (noof_operations == 2) {
+	c1 = (c1 * c3);// * c3;
+      }
+    res_c = c1 * c2;
     }
     
     R_Ring_Number decoded_message = res_c.Decrypt(params, sk_pk.first);
+
     if (message3 != decoded_message) {
+      /*
+      if (operation_type == FHE_Multiplication && noof_operations == 2) {
+	FHE_Cipher_Text test_cipher = (c1 * c2);
+	FHE_Cipher_Text c3_duble = c3;
+	R_Ring_Number d1 = test_cipher.Decrypt(params, sk_pk.first);
+	R_Ring_Number dm1 = message1 * message2;
+	assert(d1 == dm1);
+	test_cipher = test_cipher * c3;
+	R_Ring_Number d2 = test_cipher.Decrypt(params, sk_pk.first);
+	assert(d2 == decoded_message);
+	std::cout << "First mult = "; dm1.print(); std::cout << std::endl;
+	std::cout << "First mult decription = "; d1.print(); std::cout << std::endl;
+	dm1 = dm1 * message4;
+	std::cout << "Second mult = "; dm1.print(); std::cout << std::endl;
+	std::cout << "Second mult decruption = "; d2.print(); std::cout << std::endl;
+	std::cout << "Third multiplies decryption = "; c3.Decrypt(params, sk_pk.first).print(); std::cout << std::endl;
+	FHE_Cipher_Text c3_duble_updates(c3.Get_Cipher(), &sk_pk.second, modul);
+	assert(c3.Decrypt(params, sk_pk.first) == message4);
+	}*/
+      c2.Update_To_Same_Level(c2.Get_Cipher(), c1.Get_Cipher());
       std::cout << "attempt #" << ii << std::endl;
       std::cout << "modul " << modul << std::endl;
 
@@ -675,6 +896,10 @@ private:
       message1.print();
       std::cout << " " << ((operation_type == FHE_Addition) ? "+" : "*") << " ";
       message2.print();
+      if (noof_operations > 1) {
+	std::cout << " " << ((operation_type == FHE_Addition) ? "+" : "*") << " ";
+	message4.print();
+      }
       std::cout << std::endl;
       
       std::cout << "message = ";
@@ -692,6 +917,12 @@ private:
       std::cout << "c2 = ";
       c2.print();
       std::cout << std::endl;
+
+      if (noof_operations > 1) {
+	std::cout << "c3 = ";
+	c3.print();
+	std::cout << std::endl;
+      }
 
       std::cout << "final amount of noise = mod " << res_c.Get_Cipher().first.Get_q() << " = ";
       res_c.Get_Cipher().first.Dot_Product(sk_pk.first[res_c.Get_Cipher().second]).print();
@@ -768,7 +999,6 @@ private:
       // 32477229033819617
       std::cout << "LLONG_MAX = "; my_number.print(); std::cout << std::endl;
       
-
       int p = res_c.Get_Cipher().first.Get_q(), q = c3.Get_q();
 
       R_Ring_Vector c_powers2 = FHE::Powersof2(c3, c3.Get_q());
@@ -906,15 +1136,22 @@ private:
     char tests_names[][27] = {"test_FHE_One_Add_for_LWE  ",
 			    "test_FHE_One_Add_for_RLWE ",
 			    "test_FHE_One_Mult_for_LWE ",
-			    "test_FHE_One_Mult_for_RLWE"};
+			      "test_FHE_One_Mult_for_RLWE",
+			      "test_FHE_Two_Add_for_LWE  ",
+			    "test_FHE_Two_Add_for_RLWE ",
+			    "test_FHE_Two_Mult_for_LWE ",
+			    "test_FHE_Two_Mult_for_RLWE"};
     GLWE_Type types[] = {LWE_Based, RLWE_Based, LWE_Based, RLWE_Based};
     FHE_Operation operation[] = {FHE_Addition, FHE_Addition, FHE_Multiplication, FHE_Multiplication};
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 6; i < 8; i++) {
       std::cout << tests_names[i] << " ";
+      if (i == 6) {
+	i = i;
+      }
     for (int j = 0; j < 5; j++) {
       std::cout << std::endl << "Module " << modules[j] << std::endl;
-      if (!test_FHE_One_Add(types[i], operation[i], modules[j])) {
+      if (!test_FHE_One_Add(types[i % 4], operation[i % 4], modules[j], i / 4 + 1)) {
 	return false;
       }
     }
@@ -923,35 +1160,80 @@ private:
   }
 
   bool test_FHE_LSS() {
-    std::cout << "test_FHE_LSS ";/*
+    std::cout << "test_FHE_LSS ";
+    
+    GLWE_Type type = LWE_Based; // RLWE_Based
+    int modul = 31;
     FHE fhe;
-    FHE_Params params = fhe.Setup(3, 2, type);
+    int L = 2;
+    FHE_Params params = fhe.Setup(3, L, type, modul);
+    std::cout << "params = ";
+    for (int i = 0; i < params.size(); i++) {
+      params[i].print();
+      if (i + 1 != params.size()) std::cout << ", ";
+    }
+    std::cout << std::endl;
+    
     int noof_vectors = 5;
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
-    
-    long long *array_m[5];
-    for (int j = 0; j < 5; j++) {
-      array_m[j] = new long long [params[0].d];
-      for (int i = 0; i < params[0].d; i++) {
-	array_m[j][i] = rand() % 2;
+    FHE_Secret_Key_Type &sk = sk_pk.first;
+    FHE_Public_Key_Type &pk = sk_pk.second;
+
+    std::cout << "sk dimensions = (";
+    for (int i = 0; i < sk.size(); i++) {
+      std::cout << sk[i].Get_Dimension();
+      if (i + 1 != sk.size()) {
+	std::cout << ", ";
       }
     }
-    
-    R_Ring_Number message1(2, params[0].d, array_m[0]), message2(2, params[0].d, array_m[1]), message3(2, params[0].d);
-    if (operation_type == FHE_Addition) {
-      message3 = message1 + message2;
-    } else if (operation_type == FHE_Multiplication) {
-      message3 = message1 * message2;
+    std::cout << ")" << std::endl;
+
+    std::cout << "pk dimensions = (";
+    for (int i = 0; i < pk.size(); i++) {
+      std::cout << "(" << pk[i].Get_Noof_Rows() << ", " << pk[i].Get_Noof_Columns() << ")";
+      if (i + 1 != pk.size()) {
+	std::cout << ", ";
+      }
     }
-     
-    FHE_Cipher_Text c1 = fhe.Encrypt(params, &sk_pk.second, message1), c2 = fhe.Encrypt(params, &sk_pk.second, message2);*/
+    std::cout << ")" << std::endl;
+
+    std::vector<long long *> array_m_x(noof_vectors), array_m_y(noof_vectors);
+    for (int j = 0; j < noof_vectors; j++) {
+      array_m_x[j] = new long long [params[0].d];
+      array_m_x[j][0] = R_Ring_Number::Clamp(rand(), modul);
+      array_m_y[j] = new long long [params[0].d];
+      array_m_y[j][0] = R_Ring_Number::Clamp(rand(), modul);
+    }
+    std::vector<R_Ring_Number> messages_x, messages_y;
+    std::vector<FHE_Cipher_Text> c_x, c_y;
+    for (int j = 0; j < noof_vectors; j++) {
+      messages_x.push_back(R_Ring_Number(modul, params[0].d, array_m_x[j]));
+      messages_y.push_back(R_Ring_Number(modul, params[0].d, array_m_y[j]));
+      c_x.push_back(fhe.Encrypt(params, &sk_pk.second, messages_x[j]));
+      c_x[c_x.size() - 1].Add_Secret_Key_Info(&sk_pk.first);
+      c_y.push_back(fhe.Encrypt(params, &sk_pk.second, messages_y[j]));
+      c_y[c_y.size() - 1].Add_Secret_Key_Info(&sk_pk.first);
+    }
+
+    for (int j = 0; j < noof_vectors; j++) {
+      delete [] array_m_x[j];
+      delete [] array_m_y[j];
+    }
+      
+    Pair<FHE_Cipher_Text, FHE_Cipher_Text> res_c = Compute_LSS<FHE_Cipher_Text>(c_x, c_y);
+    Pair<R_Ring_Number, R_Ring_Number> res = Compute_LSS<R_Ring_Number>(messages_x, messages_y);
+    Pair<R_Ring_Number, R_Ring_Number> res_d(res_c.first.Decrypt(params, sk_pk.first), res_c.second.Decrypt(params, sk_pk.first));
+    if (res.first != res_d.first || res.second != res_d.second) {
+      FAIL();
+      return false;
+    }
     PASS();
     return true;
   }
 
 public:
   void Run_Tests() {
-    if (!test_Zero_Number() ||
+    if (/*<!test_Zero_Number() ||
 	!test_Nonzero_Number() ||
 	!test_Number_Addition() ||
 	!test_Number_Multiplication() ||
@@ -966,6 +1248,10 @@ public:
 	!test_Powersof2_BitDecomposition() ||
 	!test_Number_Scale() ||
 	!test_FHE_Switch_Keys() ||
+	!test_Multiple_Refresh(LWE_Based) ||
+	!test_Multiple_Refresh(RLWE_Based) || */
+	!test_FHE_Two_Mult(LWE_Based) ||
+	!test_FHE_Two_Mult(RLWE_Based) ||
 	!test_FHE_Operations() ||
 	!test_FHE_LSS()) {
       std::cout << "Overall tests FAILED" << std::endl;
