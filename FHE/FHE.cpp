@@ -8,11 +8,11 @@ R_Ring_Vector FHE_Cipher_Text::Switch_Key(R_Ring_Matrix A, R_Ring_Vector c1) {
   return (m * A).Get_Vector();
 }
 
-R_Ring_Vector FHE_Cipher_Text::Scale(R_Ring_Vector &x, long long q, long long p, int r) {
+R_Ring_Vector FHE_Cipher_Text::Scale(R_Ring_Vector &x, ZZ q, ZZ p, int r) {
   assert(p < q);
   R_Ring_Vector rn(p, x.Get_d(), x.Get_Dimension());
   for (int i = 0; i < x.Get_Dimension(); i++) {
-    rn[i] = x[i].Scale(q, p, r);
+    rn[i] = x[i].Scale(q, p, ZZ(INIT_VAL, r));
   }
   return rn;
 }
@@ -27,15 +27,15 @@ void FHE_Cipher_Text::Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *
 
   /**** debug code ****/
   // noise check
-  long long B;
+  ZZ B;
   R_Ring_Vector s_pp;
   if (sk != NULL) {
     s_pp = FHE::Bit_Decomposition((*sk)[c.second].Tensor_Product((*sk)[c.second]), (*sk)[c.second].Get_q());
     B = c1.Dot_Product(s_pp).Get_Norm();
-    long long required_upper_bound = (*sk)[c.second].Get_q() / 2 - (*sk)[c.second - 1].Get_q() / (double)(*sk)[c.second].Get_q() * c.first.Get_d() * c.first.Get_Field_Expansion() * (((*sk)[c.second].Get_Dimension() - 1) * (*sk)[c.second].Get_Dimension()) / 2 * ceil(log2(c.first.Get_q()));
+    ZZ required_upper_bound = (*sk)[c.second].Get_q() / 2 - (*sk)[c.second - 1].Get_q() * c.first.Get_d() * (int)(c.first.Get_Field_Expansion() + 1) * (((*sk)[c.second].Get_Dimension() - 1) * (*sk)[c.second].Get_Dimension()) / 2 * NumBits(c.first.Get_q()) / (*sk)[c.second].Get_q();
     assert(B < required_upper_bound);
-    long long expected_B = (*sk)[c.second - 1].Get_q() / (double)(*sk)[c.second].Get_q() * B + c.first.Get_d() * c.first.Get_Field_Expansion() * (((*sk)[c.second].Get_Dimension() - 1) * (*sk)[c.second].Get_Dimension()) / 2 * ceil(log2(c.first.Get_q()));
-    assert(expected_B < c.first.Get_q() * 0.5);
+    ZZ expected_B = (*sk)[c.second - 1].Get_q() * B / (*sk)[c.second].Get_q() + c.first.Get_d() * (int)(c.first.Get_Field_Expansion() + 1) * (((*sk)[c.second].Get_Dimension() - 1) * (*sk)[c.second].Get_Dimension()) / 2 * NumBits(c.first.Get_q());
+    assert(expected_B * 2 < c.first.Get_q());
   }
   /**** endof debug code ****/
   
@@ -46,7 +46,7 @@ void FHE_Cipher_Text::Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *
   if (sk != NULL) {
     s_pp.Decrease_Modul(c2.Get_q());
     B = c2.Dot_Product(s_pp).Get_Norm();
-    assert(B < c2.Get_q() * 0.5);
+    assert(B * 2 < c2.Get_q());
   }
   /**** endof debug code ****/
   
@@ -56,11 +56,11 @@ void FHE_Cipher_Text::Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *
   /**** debug code ****/
   // noise check
   if (sk != NULL) {
-    long long new_B = c3.Dot_Product((*sk)[c.second - 1]).Get_Norm();
+    ZZ new_B = c3.Dot_Product((*sk)[c.second - 1]).Get_Norm();
     // 2 multiplier before second summand stands for B_{\xi}
-    long long expected_B = B + 2 * sqrt((double)c.first.Get_d()) * 2 * c.first.Get_Field_Expansion() * (((*sk)[c.second].Get_Dimension() - 1) * (*sk)[c.second].Get_Dimension()) / 2 * pow(ceil(log2(c.first.Get_q())), 2);
-    assert(expected_B < c3.Get_q() * 0.5);
-    assert(new_B < c2.Get_q() * 0.5);
+    ZZ expected_B = B + 2 * sqrt((double)c.first.Get_d()) * 2 * c.first.Get_Field_Expansion() * (((*sk)[c.second].Get_Dimension() - 1) * (*sk)[c.second].Get_Dimension()) / 2 * NumBits(c.first.Get_q()) * NumBits(c.first.Get_q());
+    assert(expected_B * 2 < c3.Get_q());
+    assert(new_B * 2 < c2.Get_q());
   }
   /**** endof debug code ****/
 
@@ -136,13 +136,13 @@ void FHE_Cipher_Text::Update_To_Same_Level(Pair<R_Ring_Vector, int> &c1, Pair<R_
   }
 }
 
-Pair<R_Ring_Vector, int> FHE_Cipher_Text::Mult(Pair<R_Ring_Vector, int> c, long long n, FHE_Secret_Key_Type *sk) {
+Pair<R_Ring_Vector, int> FHE_Cipher_Text::Mult(Pair<R_Ring_Vector, int> c, ZZ n, FHE_Secret_Key_Type *sk) {
   /**** debug code ****/
   // noise check
-  long long B;
+  ZZ B;
   if (sk != NULL) {
     B = c.first.Dot_Product((*sk)[c.second]).Get_Norm();
-    assert(c.first.Get_Field_Expansion() * B * n < c.first.Get_q() * 0.5);
+    assert(c.first.Get_Field_Expansion() * B * n * 2 < c.first.Get_q());
   }
   /**** endof debug code ****/
 
@@ -155,7 +155,7 @@ Pair<R_Ring_Vector, int> FHE_Cipher_Text::Mult(Pair<R_Ring_Vector, int> c, long 
   /**** debug code ****/
   if (sk != NULL) {
     B = res_c.Dot_Product((*sk)[c.second].Tensor_Product((*sk)[c.second])).Get_Norm();
-    assert(B < c.first.Get_q() * 0.5);
+    assert(B * 2 < c.first.Get_q());
   }
   /**** endof debug code ****/
 
@@ -169,11 +169,11 @@ Pair<R_Ring_Vector, int> FHE_Cipher_Text::Add(Pair<R_Ring_Vector, int> c1, Pair<
   Update_To_Same_Level(c1, c2);
 
   /**** debug code ****/
-  long long B1, B2;
+  ZZ B1, B2;
   if (sk != NULL) {
     B1 = c1.first.Dot_Product((*sk)[c1.second]).Get_Norm();
     B2 = c2.first.Dot_Product((*sk)[c1.second]).Get_Norm();
-    assert(B1 + B2 < c1.first.Get_q() * 0.5);
+    assert((B1 + B2) * 2 < c1.first.Get_q());
   }
   /**** endof debug code ****/
 
@@ -198,11 +198,11 @@ Pair<R_Ring_Vector, int> FHE_Cipher_Text::Mult(Pair<R_Ring_Vector, int> c1, Pair
   Update_To_Same_Level(c1, c2);
 
   /**** debug code ****/
-  long long B1, B2;
+  ZZ B1, B2;
   if (sk != NULL) {
     B1 = c1.first.Dot_Product((*sk)[c1.second]).Get_Norm();
     B2 = c2.first.Dot_Product((*sk)[c1.second]).Get_Norm();
-    assert(c1.first.Get_Field_Expansion() * B1 * B2 < c1.first.Get_q() * 0.5);
+    assert(c1.first.Get_Field_Expansion() * B1 * B2 * 2 < c1.first.Get_q());
   }
   /**** endof debug code ****/
 
@@ -225,7 +225,7 @@ Pair<R_Ring_Vector, int> FHE_Cipher_Text::Mult(Pair<R_Ring_Vector, int> c1, Pair
   /**** debug code ****/
   if (sk != NULL) {
     B1 = c3.Dot_Product((*sk)[c1.second].Tensor_Product((*sk)[c1.second])).Get_Norm();
-    assert(B1 < c3.Get_q() * 0.5);
+    assert(B1 * 2 < c3.Get_q());
   }
   /**** endof debug code ****/
 

@@ -12,10 +12,11 @@
 class GLWE_Params {
 public:
   GLWE_Params() {
-    q = d = n = N = B = p = 0;
+    d = n = N = p = 0;
+    B = q = ZZ::zero();
     noise = NULL;
   }
-  GLWE_Params(long long q, int d, int n, int N, long long B, int p,  R_Ring_Number (*noise)(long long q, int d, long long B, int p)) {
+  GLWE_Params(ZZ q, int d, int n, int N, ZZ B, int p,  R_Ring_Number (*noise)(ZZ q, int d, ZZ B, int p)) {
     this->q = q;
     this->d = d;
     this->n = n;
@@ -24,11 +25,11 @@ public:
     this->p = p;
     this->noise = noise;
   }
-  long long B, q;
+  ZZ B, q;
   int d, n, N;
   int p;
   /*** Noise distribution ***/
-  R_Ring_Number (*noise)(long long q, int d, long long B, int p);
+  R_Ring_Number (*noise)(ZZ q, int d, ZZ B, int p);
   
   R_Ring_Number ksi() {
     return noise(q, d, B, p);
@@ -61,20 +62,21 @@ typedef R_Ring_Vector GLWE_Ciphertext_Type;
 
 /*** Basic GLWE_Encryption_Scheme ***/
 class GLWE {
-  static bool Is_Prime(long long n) {
-    long long n_sq = sqrt(n);
-    for (long long i = 2; i < n_sq; i++) {
+  /*  static bool Is_Prime(ZZ n) {
+    ZZ n_sq = sqrt(n);
+    for (ZZ i = 2; i < n_sq; i++) {
       if (n % i == 0) {
 	return false;
       }
     }
     return true;
-  }
+    }*/
 
-  static long long Choose_q(int mu, int r) {
-    long long n = (((long long)1) << mu) - 1;
-    while (n > (((long long)1) << (mu - 1))) {
-      if (Is_Prime(n) && n % r == 1) {
+  static ZZ Choose_q(int mu, int r) {
+    ZZ n;
+    n = (ZZ(INIT_VAL, 1) << mu) - 1;
+    while (n > (ZZ(INIT_VAL, 1) << (mu - 1))) {
+      if (ProbPrime(n) && n % r == 1) {
 	return n;
       }
       n--;
@@ -84,7 +86,7 @@ class GLWE {
     // did not find modul that is equal to 1 mod r
     throw false;
     //    assert(false);
-    return -1;
+    return ZZ(INIT_VAL, -1);
   }
  public:
   static int Choose_d(int lambda, int mu, GLWE_Type b) {
@@ -103,11 +105,11 @@ class GLWE {
     return 2;
   }
  private:
-  static int Choose_N(int n, long long q) {
-    return ceil((2 * n + 1) * log2((double)q));
+  static int Choose_N(int n, ZZ q) {
+    return ceil((2 * n + 1) * NumBits(q));
   }
 
-  static R_Ring_Number Noise(long long q, int d, long long B, int p) {
+  static R_Ring_Number Noise(ZZ q, int d, ZZ B, int p) {
     /*
     // TODO: to be implemented
     // int bound = floor(sqrt(q * 0.2 / Choose_N(n, q)));
@@ -120,7 +122,7 @@ class GLWE {
     res.Increase_Modul(q);
     return res;
     */
-    assert(B >= 2);
+    assert(B >= ZZ(INIT_VAL, 2));
     R_Ring_Number res = R_Ring_Number::Uniform_Rand(B, d);
     // R_Ring_Number res = R_Ring_Number(2, d);
     res.Increase_Modul(q);
@@ -128,8 +130,8 @@ class GLWE {
     return res;
   }
 
-  static int Choose_B(long long q, int d, int N, int p) {
-    /*    long long B = floor((q - 2) / 2.0 / p / d / (double)N);
+  static ZZ Choose_B(ZZ q, int d, int N, int p) {
+    /*    ZZ B = floor((q - 2) / 2.0 / p / d / (double)N);
     if (B <= 1) {
       std::cout << "suggested q : q / log2(q) >= " << 4 * p * d * N / ceil(log2(1.0 * q)) + 2 << std::endl;
       std::cout << "q = " << q << std::endl;
@@ -140,16 +142,16 @@ class GLWE {
     }
     assert(B > 1); */
 
-    return 2;//B > 2 ? B : 2;
+    return ZZ(INIT_VAL, 2);//B > 2 ? B : 2;
   }
 public:	
   GLWE_Params Setup(int lambda, int mu, GLWE_Type b, int p = 2) const {
-    long long q;
+    ZZ q;
     q = Choose_q(mu, p);
     int n = Choose_n(lambda, mu, b);
     int N = Choose_N(n, q);
     int d = Choose_d(lambda, mu, b);
-    long long B = Choose_B(q, d, N, p);
+    ZZ B = Choose_B(q, d, N, p);
 
     return GLWE_Params(q, d, n, N, B, p, &Noise);
   }
@@ -255,7 +257,7 @@ public:
     // r
     R_Ring_Vector r(params.q, params.d, params.N);
     for (int i = 0; i < r.Get_Dimension(); i++) {
-      r[i] = R_Ring_Number(params.q, params.d, R_Ring_Number::Uniform_Rand(2, params.d).Get_vec());
+      r[i] = R_Ring_Number(params.q, params.d, R_Ring_Number::Uniform_Rand(ZZ(INIT_VAL, 2), params.d).Get_vec());
     }
 
     /*std::cout << "r2 = ";
@@ -308,7 +310,7 @@ public:
     /*std::cout << "clamped1 = ";
     clamped1.print();
     std::cout << std::endl;*/
-    R_Ring_Number clamped2 = clamped1.Clamp(params.p);
+    R_Ring_Number clamped2 = clamped1.Clamp(ZZ(INIT_VAL, params.p));
     return clamped2;
   }
 };

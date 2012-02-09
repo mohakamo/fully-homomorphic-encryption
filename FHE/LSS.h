@@ -25,17 +25,18 @@ Pair<T, T> Compute_LSS(std::vector<T> xs, std::vector<T> ys) {
   int size = xs.size();
   assert(xs.size() == ys.size());
   std::vector<T> x_x(size), x_y(size), sum_x(size), sum_y(size);
+  // if xs(i) and ys(i) are bounded by say M, then...
   for (int i = 0; i < size; i++) {
-    x_x[i] = xs[i] * xs[i];
-    x_y[i] = xs[i] * ys[i];
+    x_x[i] = xs[i] * xs[i]; // bounded by M^2
+    x_y[i] = xs[i] * ys[i]; // M^2
     sum_x[i] = xs[i];
     sum_y[i] = ys[i];
   }
 
-  Sum_Up<T>(x_x);
-  Sum_Up<T>(x_y);
-  Sum_Up<T>(sum_x);
-  Sum_Up<T>(sum_y);
+  Sum_Up<T>(x_x); // bounded by size * M^2
+  Sum_Up<T>(x_y); // M^2
+  Sum_Up<T>(sum_x); // bounded by size * M
+  Sum_Up<T>(sum_y); // size * M
 
   T a, b;
   int t1, t2, t3;
@@ -45,7 +46,7 @@ Pair<T, T> Compute_LSS(std::vector<T> xs, std::vector<T> ys) {
     t3 = (reinterpret_cast<FHE_Cipher_Text *>(&sum_y[0]))->Get_Cipher().second;
   }
 
-  T tmp1 = sum_x[0] * sum_y[0];
+  T tmp1 = sum_x[0] * sum_y[0]; // bounded by (size * M)^2
   if (typeid(T) == typeid(FHE_Cipher_Text)) {
     t1 = (reinterpret_cast<FHE_Cipher_Text *>(&tmp1))->Get_Cipher().second + 1;
     if (t1 != t2) {
@@ -53,7 +54,7 @@ Pair<T, T> Compute_LSS(std::vector<T> xs, std::vector<T> ys) {
       exit(1);
     }
   }
-  T tmp2 = x_y[0] * xs.size();
+  T tmp2 = x_y[0] * ZZ(INIT_VAL, xs.size()); // bounded by (size * M)^2
   if (typeid(T) == typeid(FHE_Cipher_Text)) {
     t1 = (reinterpret_cast<FHE_Cipher_Text *>(&tmp2))->Get_Cipher().second + 1;
     t2 = (reinterpret_cast<FHE_Cipher_Text *>(&x_y[0]))->Get_Cipher().second;
@@ -62,10 +63,10 @@ Pair<T, T> Compute_LSS(std::vector<T> xs, std::vector<T> ys) {
       exit(1);
     }
   }
-  a = tmp2 - tmp1;
-  T tmp3 = x_x[0] * sum_y[0];
-  T tmp4 = sum_x[0] * x_y[0];
-  b = tmp3 - tmp4;
+  a = tmp2 - tmp1; // bounded by 2 * (size * M)^2
+  T tmp3 = x_x[0] * sum_y[0]; // bounded by size^2 * M^3
+  T tmp4 = sum_x[0] * x_y[0]; // bounded by size^2 * M^3
+  b = tmp3 - tmp4; // bounded by 2 * size^2 * M^3
 
   return Pair<T, T>(a, b);
 }

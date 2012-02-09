@@ -19,7 +19,7 @@ private:
 
   bool test_Zero_Number() {
     std::cout << "testNumber_Zero ";
-    R_Ring_Number zero(8, 8);
+    R_Ring_Number zero(ZZ(INIT_VAL, 8), 8);
     for (int i = 0; i < 8; i++) {
       if (zero[i] != 0) {
 	FAIL();
@@ -32,8 +32,8 @@ private:
 
   bool test_Nonzero_Number() {
     std::cout << "test_Nonzero_Number ";
-    long long array_a[] = {0, 1, 1, 0};
-    R_Ring_Number a(2, 4, array_a);
+    ZZ array_a[] = {ZZ(INIT_VAL, 0), ZZ(INIT_VAL, 1), ZZ(INIT_VAL, 1), ZZ(INIT_VAL, 0)};
+    R_Ring_Number a(ZZ(INIT_VAL, 2), 4, array_a);
     
     for (int i = 0; i < 4; i++) {
       if (a[i] != array_a[i]) {
@@ -47,13 +47,13 @@ private:
 
   bool test_Number_Addition() {
     std::cout << "test_Number_Addition ";
-    long long array_a[] = {0, 1, 1, 0};
-    long long array_b[] = {0, 0, 1, 1};
-    R_Ring_Number a(2, 4, array_a);
-    R_Ring_Number b(2, 4, array_b);
+    ZZ array_a[] = {ZZ(INIT_VAL, 0), ZZ(INIT_VAL, 1), ZZ(INIT_VAL, 1), ZZ(INIT_VAL, 0)};
+    ZZ array_b[] = {ZZ(INIT_VAL, 0), ZZ(INIT_VAL, 0), ZZ(INIT_VAL, 1), ZZ(INIT_VAL, 1)};
+    R_Ring_Number a(ZZ(INIT_VAL, 2), 4, array_a);
+    R_Ring_Number b(ZZ(INIT_VAL, 2), 4, array_b);
 
     R_Ring_Number sum = a + b;
-    sum.Clamp(2);
+    sum.Clamp(ZZ(INIT_VAL, 2));
     if (sum[0] != 0 || sum[1] != 1 || sum[2] != 0 || sum[3] != 1) {
       FAIL();
       std::cout << "Expected: {0, 1, 0, 1}" << std::endl << "Got:      {" << sum[0] << ", " <<
@@ -67,14 +67,14 @@ private:
 
   bool test_Number_Multiplication() {
     std::cout << "test_Number_Multiplication ";
-    long long array_a[] = {2, 0, 2, 1};
-    long long array_b[] = {1, 0, 0, 1};
+    ZZ array_a[] = {ZZ(INIT_VAL, 2), ZZ(INIT_VAL, 0), ZZ(INIT_VAL, 2), ZZ(INIT_VAL, 1)};
+    ZZ array_b[] = {ZZ(INIT_VAL, 1), ZZ(INIT_VAL, 0), ZZ(INIT_VAL, 0), ZZ(INIT_VAL, 1)};
 
-    R_Ring_Number a(3, 4, array_a);
-    R_Ring_Number b(3, 4, array_b);
+    R_Ring_Number a(ZZ(INIT_VAL, 3), 4, array_a);
+    R_Ring_Number b(ZZ(INIT_VAL, 3), 4, array_b);
 
     R_Ring_Number mul = a * b;
-    mul.Clamp(3);
+    mul.Clamp(ZZ(INIT_VAL, 3));
 
     if (mul[0] != -1 || mul[1] != 1 || mul[2] != 1 || mul[3] != 0) {
       FAIL();
@@ -110,9 +110,23 @@ private:
 		      {2, 3, -1},
 		      {3, 3, 0}}; // 17
     for (int i = 0; i < 17; i++) {
-      if (R_Ring_Number::Clamp(tests[i][0], tests[i][1]) != tests[i][2]) {
+      if (R_Ring_Number::Clamp(ZZ(INIT_VAL, tests[i][0]), ZZ(INIT_VAL, tests[i][1])) != ZZ(INIT_VAL, tests[i][2])) {
 	FAIL();
 	std::cout << "R_Ring_Number::Reduce(" << tests[i][0] << ", " << tests[i][1] << ") != " << tests[i][2] << std::endl;
+	std::cout << "R_Ring_Number::Reduce(...) = " << R_Ring_Number::Clamp(ZZ(INIT_VAL, tests[i][0]), ZZ(INIT_VAL, tests[i][1])) << std::endl;
+	ZZ modul = ZZ(INIT_VAL, tests[i][1]);
+	ZZ n = ZZ(INIT_VAL, tests[i][0]);
+
+	// for odd module reduce to range [-(q - 1) / 2, (q - 1) / 2]
+	// for even module reduce to range [(q - 2) / 2, q / 2]
+	ZZ q_half_b = modul / 2;
+	ZZ q_half_a = -(modul - 1) / 2;
+	if (n > q_half_b) {
+	  n -= ((n - q_half_b - 1) / modul + 1) * modul;
+	} else if (n < q_half_a) {
+	  n += (-(n - q_half_a + 1) / modul + 1) * modul;
+	}
+	std::cout << "q_half_b = " << q_half_b << ", q_half_a = " << q_half_a << std::endl;
 	return false;
       }
     }
@@ -123,13 +137,13 @@ private:
   bool test_Number_Equality() {
     std::cout << "test_Number_Equality ";
 
-    long long array_a[] = {1, 1, 0, 0};
-    long long array_b[] = {1, 1, 0, 0};
-    long long array_c[] = {1, 0, 0, 0};
+    ZZ array_a[] = {ZZ(INIT_VAL, 1), ZZ(INIT_VAL, 1), ZZ(INIT_VAL, 0), ZZ(INIT_VAL, 0)};
+    ZZ array_b[] = {ZZ(INIT_VAL, 1), ZZ(INIT_VAL, 1), ZZ(INIT_VAL, 0), ZZ(INIT_VAL, 0)};
+    ZZ array_c[] = {ZZ(INIT_VAL, 1), ZZ(INIT_VAL, 0), ZZ(INIT_VAL, 0), ZZ(INIT_VAL, 0)};
     
-    R_Ring_Number a(2, 4, array_a),
-      b(2, 4, array_b),
-      c(2, 4, array_c);
+    R_Ring_Number a(ZZ(INIT_VAL, 2), 4, array_a),
+      b(ZZ(INIT_VAL, 2), 4, array_b),
+      c(ZZ(INIT_VAL, 2), 4, array_c);
     if (!(a == b) || a != b || !(a != c) || a == c) {
       FAIL();
       return false;
@@ -155,18 +169,10 @@ private:
       GLWE_Secret_Key_Type sk = glwe.Secret_Key_Gen(params);
       R_Ring_Vector ksi;
       GLWE_Public_Key_Type pk = glwe.Public_Key_Gen(params, sk, &ksi);
-      
-      long long *array_m = new long long [params.d];
-      for (int j = 0; j < params.d; j++) {
-	array_m[j] = R_Ring_Number::Clamp(rand(), modul);
-	// array_m[j] = rand() % modul;
-      }
-      R_Ring_Number message(modul, params.d, array_m);
+      R_Ring_Number message = R_Ring_Number::Uniform_Rand(ZZ(INIT_VAL, modul), params.d);
       R_Ring_Vector r;
       GLWE_Ciphertext_Type c = glwe.Encrypt(params, pk, message, &r);
       R_Ring_Number decoded_message = glwe.Decrypt(params, sk, c);
-
-      delete [] array_m;
 
       if (message != decoded_message) {
 	FAIL();
@@ -177,7 +183,7 @@ private:
 	message.print();
 	std::cout << std::endl;
 
-	long long q = ksi.Get_q();
+	ZZ q = ksi.Get_q();
 
 	std::cout << "ksi = ";
 	ksi.print();
@@ -198,7 +204,7 @@ private:
 	noise.print();
 	std::cout << std::endl;
 	message.Increase_Modul(noise.Get_q());
-	R_Ring_Number test_m = message + noise * modul;
+	R_Ring_Number test_m = message + noise * ZZ(INIT_VAL, modul);
 	std::cout << "test_m = ";
 	test_m.print();
 	std::cout << std::endl;
@@ -208,7 +214,7 @@ private:
 	th_result.print();
 	std::cout << std::endl;
 
-	th_result = th_result.Clamp(modul);
+	th_result = th_result.Clamp(ZZ(INIT_VAL, modul));
 	std::cout << "th_result = ";
 	th_result.print();
 	std::cout << std::endl;
@@ -248,20 +254,19 @@ private:
   bool test_FHE(GLWE_Type type) {
     FHE fhe;
     
+    int modules[] = {97, 101, 103, 107, 109};
+    for (int mi = 0; mi < 1; mi++) {
+      ZZ modul = ZZ(INIT_VAL, modules[mi]);
     for (int s = 0; s < 30; s++) {
-      FHE_Params params = fhe.Setup(2, 2, type);
+      std::cout << s << std::endl;
+      FHE_Params params = fhe.Setup(2, 2, type, modules[mi]);
       Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
       
-      long long *array_m = new long long [params[0].d];
-      for (int i = 0; i < params[0].d; i++) {
-	array_m[i] = rand() % 2;
-      }
-      R_Ring_Number message(2, params[0].d, array_m);
+      R_Ring_Number message = R_Ring_Number::Uniform_Rand(modul, params[0].d);
       
       FHE_Cipher_Text c = fhe.Encrypt(params, &sk_pk.second, message);
       R_Ring_Number decoded_message = c.Decrypt(params, sk_pk.first);
 
-      delete [] array_m;
       
       if (message != decoded_message) {
 	std::cout << "Secret key: ";
@@ -289,6 +294,7 @@ private:
 	return false;
       }    
     }
+    }
     PASS();
     return true;
   }
@@ -305,11 +311,11 @@ private:
 
   bool test_Powersof2_BitDecomposition(void) {
     std::cout << "test_Powersof2_BitDecomposition ";
-    int q = 7;
+    ZZ q = ZZ(INIT_VAL, 7);
     int d = 3;
     for (int i = 0; i < 30; i++) {
-    R_Ring_Vector c = R_Ring_Vector::Uniform_Rand(q, d, 10);
-    R_Ring_Vector s = R_Ring_Vector::Uniform_Rand(q, d, 10);
+      R_Ring_Vector c = R_Ring_Vector::Uniform_Rand(q, d, 10);
+      R_Ring_Vector s = R_Ring_Vector::Uniform_Rand(q, d, 10);
     R_Ring_Number expected = c.Dot_Product(s).Clamp(q);
     R_Ring_Vector bits_c = FHE::Bit_Decomposition(c, q);
     R_Ring_Vector powers2_s = FHE::Powersof2(s, q);
@@ -354,22 +360,22 @@ private:
     std::cout << "test_Number_Scale ";
     int d = 1;
     int dimension = 10;
-    int q[] = {577, 613, 983};
-    int p[] = {571, 607, 977};
+    ZZ q[] = {ZZ(INIT_VAL, 577), ZZ(INIT_VAL, 613), ZZ(INIT_VAL, 983)};
+    ZZ p[] = {ZZ(INIT_VAL, 571), ZZ(INIT_VAL, 607), ZZ(INIT_VAL, 977)};
     for (int i = 0; i < 3; i++) {
       for (int s = 0; s < 30; s++) {
-	int bound = q[i] / 2 / dimension - q[i] / p[i] * d;
-	R_Ring_Vector message = R_Ring_Vector::Uniform_Rand(2, d, dimension);
+	ZZ bound = q[i] / 2 / dimension - q[i] / p[i] * d;
+	R_Ring_Vector message = R_Ring_Vector::Uniform_Rand(ZZ(INIT_VAL, 2), d, dimension);
 	R_Ring_Vector qv = R_Ring_Vector::Uniform_Rand(q[i], d, dimension, bound);
 	R_Ring_Vector pv = R_Ring_Vector(p[i], d, dimension);
 	for (int j = 0; j < dimension; j++) {
-	  pv[j] = qv[j].Scale(q[i], p[i], 2);
+	  pv[j] = qv[j].Scale(q[i], p[i], ZZ(INIT_VAL, 2));
 	}
 	message.Increase_Modul(p[i]);
 	R_Ring_Number result_p = message.Dot_Product(pv);
 	message.Increase_Modul(q[i]);
 	R_Ring_Number result_q = message.Dot_Product(qv);
-	if (result_q.Get_Clamped(2) != result_p.Get_Clamped(2)) {
+	if (result_q.Get_Clamped(ZZ(INIT_VAL, 2)) != result_p.Get_Clamped(ZZ(INIT_VAL, 2))) {
 	  std::cout << "attempt #" << s << std::endl;
 	  std::cout << "q = " << q[i] << " p = " << p[i] << std::endl;
 	  std::cout << "bound = " << bound << std::endl;
@@ -378,7 +384,7 @@ private:
 	  qv.print();
 	  std::cout << std::endl;
 
-	  qv.Clamp(2);
+	  qv.Clamp(ZZ(INIT_VAL, 2));
 	  std::cout << "qv mod 2 = ";
 	  qv.print();
 	  std::cout << std::endl;
@@ -387,7 +393,7 @@ private:
 	  pv.print();
 	  std::cout << std::endl;
 
-	  pv.Clamp(2);
+	  pv.Clamp(ZZ(INIT_VAL, 2));
 	  std::cout << "pv mod 2 = ";
 	  pv.print();
 	  std::cout << std::endl;
@@ -408,39 +414,38 @@ private:
 	}
       }
     }
-    R_Ring_Number aa_n(4194301, 1), bb_n(262139, 1);
-    aa_n[0] = -1386462;
-    bb_n[0] = -86652;
-    R_Ring_Number res = aa_n.Scale(4194301, 262139, 3);
-    assert(res == bb_n);
+    /*
+    R_Ring_Number aa_n(ZZ(INIT_VAL, 4194301), 1), bb_n(ZZ(INIT_VAL, 262135), 1);
+    aa_n[0] = ZZ(INIT_VAL, -1386462);
+    bb_n[0] = ZZ(INIT_VAL, -86652);
+    R_Ring_Number res = aa_n.Scale(ZZ(INIT_VAL, 4194301), ZZ(INIT_VAL, 262135), ZZ(INIT_VAL, 3));
+    assert(res == bb_n); */
     PASS();
     return true;
   }
 
   bool test_FHE_Switch_Keys(void) {
-    int modules[] = {2, 3, 5, 7, 11};
+    int modules[] = {97, 101, 103, 107, 109};
+    //    int modules[] = {2, 3, 5, 7, 11};
     GLWE_Type types[2] = {LWE_Based, RLWE_Based};
     
     FHE fhe;
 
     for (int j = 0; j < 2; j++) {
       std::cout << "test_FHE_Switch_Keys for " << (j == 0 ? "LWE" : "RLWE") << " ";
-    for (int modul_index = 0; modul_index < 5; modul_index++) {
+    for (int modul_index = 0; modul_index < 1; modul_index++) {
       int modul = modules[modul_index];
     for (int s = 0; s < 30; s++) {
+      std::cout << s << std::endl;
       FHE_Params params = fhe.Setup(2, 2, types[j], modul);
       Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
       
-      long long *array_m = new long long [params[0].d];
-      for (int i = 0; i < params[0].d; i++) {
-	array_m[i] = R_Ring_Number::Clamp(rand(), modul);
-      }
-      R_Ring_Number message(modul, params[0].d, array_m);
+      R_Ring_Number message = R_Ring_Number::Uniform_Rand(ZZ(INIT_VAL, modul), params[0].d);
       
       FHE_Cipher_Text c = fhe.Encrypt(params, &sk_pk.second, message);
       // check initial correction
       R_Ring_Number decoded_initial_message = c.Decrypt(params, sk_pk.first);
-      if (decoded_initial_message != message.Get_Clamped(modul)) {
+      if (decoded_initial_message != message.Get_Clamped(ZZ(INIT_VAL, modul))) {
 	std::cout << "Initial encryption is incorrect" << std::endl;
 	std::cout << "Current message modul = " << modul << std::endl;
 	std::cout << "attempt #" << s << std::endl;
@@ -513,7 +518,7 @@ private:
 	c.Refresh(tensored_c1, &sk_pk.second);
 	FHE_Cipher_Text tc(tensored_c1, &sk_pk.second);
 	R_Ring_Number decoded_message = tc.Decrypt(params, sk_pk.first);
-	if (message.Get_Clamped(modul) != decoded_message) {
+	if (message.Get_Clamped(ZZ(INIT_VAL, modul)) != decoded_message) {
 	  std::cout << "modul = " << modul << std::endl;
 	  std::cout << "attempt #" << s << " level #" << t << std::endl;
 	  std::cout << "message =";
@@ -561,7 +566,7 @@ private:
 
 	  std::cout << "powersof2_tensored_c1 = "; powersof2_tensored_c1.print(); std::cout << std::endl;
 
-	  long long q = c.Get_Cipher().first.Get_q(), p = tc.Get_Cipher().first.Get_q();
+	  ZZ q = c.Get_Cipher().first.Get_q(), p = tc.Get_Cipher().first.Get_q();
 	  
 	  std::cout << "<c, s> before scale = ";
 	  powersof2_tensored_c1.Dot_Product(secret_tensored_prime).print();
@@ -573,20 +578,21 @@ private:
 	  cc.Dot_Product(secret_tensored_prime).Clamp(tc.Get_Cipher().first.Get_q()).print();
 	  std::cout << std::endl;
 
-	  int s_norm = 0;
+	  ZZ s_norm = ZZ::zero();
 
 	  for (int si = 0; si < secret_tensored_prime.Get_Dimension(); si++) {
 	    s_norm += secret_tensored_prime[si][0];
 	  }
 	  
 	  assert(p < q);
-	  int bound = q / 2 - q / p * modul / 2 * c.Get_Cipher().first.Get_d() * s_norm;
+	  ZZ bound;
+	  bound = q / 2 - q / p * modul / 2 * c.Get_Cipher().first.Get_d() * s_norm;
 	  std::cout << "bound = " << bound << std::endl;
 
 	  std::cout << "s = "; secret_tensored_prime.print(); std::cout << std::endl;
 	  // std::cout << "cc = "; cc.print(); std::cout << std::endl;
 
-	  long long maxx = q * q * c.Get_Cipher().first.Get_d();
+	  ZZ maxx = q * q * c.Get_Cipher().first.Get_d();
 	  std::cout << "q = " << q << ", maxx = " << maxx << std::endl;
 	  powersof2_tensored_c1.Increase_Modul(maxx);
 	  secret_tensored_prime.Increase_Modul(maxx);
@@ -594,14 +600,14 @@ private:
 	  std::cout << "<c, s> before scale = ";
 	  powersof2_tensored_c1.Dot_Product(secret_tensored_prime).print();
 	  std::cout << "  ";
-	  powersof2_tensored_c1.Dot_Product(secret_tensored_prime).Clamp(modul).print();
+	  powersof2_tensored_c1.Dot_Product(secret_tensored_prime).Clamp(ZZ(INIT_VAL, modul)).print();
 	  std::cout << std::endl;
 
 	  std::cout << "<c, s> after scale = ";
 	  cc.Increase_Modul(maxx);
 	  cc.Dot_Product(secret_tensored_prime).print();
 	  std::cout << "   ";
-	  cc.Dot_Product(secret_tensored_prime).Clamp(modul).print();
+	  cc.Dot_Product(secret_tensored_prime).Clamp(ZZ(INIT_VAL, modul)).print();
 	  std::cout << std::endl;
 
 	  std::cout << "cscale = ";
@@ -617,7 +623,6 @@ private:
 	c = tc;
       }
 
-      delete [] array_m;
     }
     }
     PASS();
@@ -638,13 +643,7 @@ private:
     FHE_Params params = fhe.Setup(2, L, type, modul);
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
     for (int s = 0; s < 30; s++) {
-    long long *array_m;
-    array_m = new long long [params[0].d];
-    for (int i = 0; i < params[0].d; i++) {
-      array_m[i] = R_Ring_Number::Clamp(rand(), modul);
-    }
-        
-    R_Ring_Number message(modul, params[0].d, array_m);
+    R_Ring_Number message = R_Ring_Number::Uniform_Rand(ZZ(INIT_VAL, modul), params[0].d);
     FHE_Cipher_Text c = fhe.Encrypt(params, &sk_pk.second, message);
     c.Add_Secret_Key_Info(&sk_pk.first);
     assert(c.Decrypt(params, sk_pk.first) == message);
@@ -693,22 +692,14 @@ private:
       FHE_Params params = fhe.Setup(2, L, type, modul);
       Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
       for (int s = 0; s < 30; s++) {
-	long long *array_m[3];
+	ZZ *array_m[3];
 	R_Ring_Number message[3];
 	FHE_Cipher_Text c[3];
 	for (int j = 0; j < 3; j++) {
-	  array_m[j] = new long long [params[0].d];
-	  for (int i = 0; i < params[0].d; i++) {
-	    array_m[j][i] = R_Ring_Number::Clamp(rand(), modul);
-	  }
-	  message[j] = R_Ring_Number(modul, params[0].d, array_m[j]);
+	  message[j] = R_Ring_Number::Uniform_Rand(ZZ(INIT_VAL, modul), params[0].d);
 	  c[j] = fhe.Encrypt(params, &sk_pk.second, message[j]);
 	  c[j].Add_Secret_Key_Info(&sk_pk.first);
 	  assert(c[j].Decrypt(params, sk_pk.first) == message[j]);
-	}
-
-	for (int j = 0; j < 3; j++) {
-	  delete [] array_m[j];
 	}
 	
 	// first level of addition
@@ -763,13 +754,13 @@ private:
 
 	  std::cout << "Noise on first mult:" << std::endl << "For c1 = " << c[0].Get_Cipher().first.Dot_Product(sk_pk.first[c[0].Get_Cipher().second]).Get_Norm() << std::endl << "For c2 = " << c[1].Get_Cipher().first.Dot_Product(sk_pk.first[c[1].Get_Cipher().second]).Get_Norm() << std::endl << "For c3 = " << c[2].Get_Cipher().first.Dot_Product(sk_pk.first[c[2].Get_Cipher().second]).Get_Norm() << std::endl;
 	  
-	  long long noise = res_c.Get_Cipher().first.Dot_Product(sk_pk.first[res_c.Get_Cipher().second]).Get_Norm();
+	  ZZ noise = res_c.Get_Cipher().first.Dot_Product(sk_pk.first[res_c.Get_Cipher().second]).Get_Norm();
 	  std::cout << "Noise after second mult = " << noise << std::endl;
 	  if (noise * noise * sqrt(res_c.Get_Cipher().first.Get_d()) > res_c.Get_Cipher().first.Get_q() / 2) {
 	    std::cout << "Noise introduced by first multiplication is way too big" << std::endl;
 	    std::cout << "Should have B * B * sqrt(d) = " << noise * noise * sqrt(res_c.Get_Cipher().first.Get_d()) << std::endl << " less than q / 2 = " << res_c.Get_Cipher().first.Get_q() / 2 << std::endl;
 	  }
-	  R_Ring_Vector c5(res_c3.Get_Cipher().first.Get_q(), res_c3.Get_Cipher().first.Get_q(), (dimension * (dimension + 1)) / 2);
+	  R_Ring_Vector c5(res_c3.Get_Cipher().first.Get_q(), res_c3.Get_Cipher().first.Get_d(), (dimension * (dimension + 1)) / 2);
 	  int index = 0;
 	  for (int i = 0; i < dimension; i++) {
 	    c5[index++] = res_c.Get_Cipher().first[i] * res_c3.Get_Cipher().first[i];
@@ -781,14 +772,14 @@ private:
 	  std::cout << std::endl;
 	  R_Ring_Vector &sk = sk_pk.first[res_c3.Get_Cipher().second];
 	  R_Ring_Vector sk_tensored = sk.Tensor_Product(sk);
-	  std::cout << "<Encr(m1) * Encr(m2) * Encr(m3), sk> = ";  c5.Dot_Product(sk_tensored).print(); std::cout << " (mod ) " << modul << " = "; c5.Dot_Product(sk_tensored).Clamp(modul).print(); std::cout << std::endl;
+	  std::cout << "<Encr(m1) * Encr(m2) * Encr(m3), sk> = ";  c5.Dot_Product(sk_tensored).print(); std::cout << " (mod ) " << modul << " = "; c5.Dot_Product(sk_tensored).Clamp(ZZ(INIT_VAL, modul)).print(); std::cout << std::endl;
 	  R_Ring_Number dot1 = res_c.Get_Cipher().first.Dot_Product(sk_pk.first[res_c.Get_Cipher().second]);
-	  std::cout << "<Encr(m1) * Encr(m2), sk> = "; dot1.Clamp(modul).print(); std::cout << std::endl;
+	  std::cout << "<Encr(m1) * Encr(m2), sk> = "; dot1.Clamp(ZZ(INIT_VAL, modul)).print(); std::cout << std::endl;
 	  assert(res_c3.Get_Cipher().second == res_c.Get_Cipher().second);
 	  R_Ring_Number dot2 = res_c3.Get_Cipher().first.Dot_Product(sk_pk.first[res_c3.Get_Cipher().second]);
-	  std::cout << "<Encr(m3), sk> = "; dot2.print(); std::cout << " = "; dot2.Clamp(modul).print(); std::cout << std::endl;
+	  std::cout << "<Encr(m3), sk> = "; dot2.print(); std::cout << " = "; dot2.Clamp(ZZ(INIT_VAL, modul)).print(); std::cout << std::endl;
 
-	  std::cout << "<Encr(m1) * Encr(m2), sk> * <Encr(m3), sk> = "; (dot1 * dot2).print(); std::cout << " = "; (dot1 * dot2).Clamp(modul).print(); std::cout << std::endl;
+	  std::cout << "<Encr(m1) * Encr(m2), sk> * <Encr(m3), sk> = "; (dot1 * dot2).print(); std::cout << " = "; (dot1 * dot2).Clamp(ZZ(INIT_VAL, modul)).print(); std::cout << std::endl;
 
 	  std::cout << "Clumsy numbers:" << std::endl;
 	  std::cout << "sk = "; sk.print(); std::cout << " mod " << sk.Get_q() << std::endl;
@@ -805,24 +796,21 @@ private:
     return true;
   }    
 
-  bool test_FHE_One_Add(GLWE_Type type, FHE_Operation operation_type, int modul = 2, int noof_operations = 1) {
+  bool test_FHE_One_Add(GLWE_Type type, FHE_Operation operation_type, int message_modul = 2, int noof_operations = 1) {
+    ZZ modul;
+    modul = message_modul;
     std::cout << ((type == LWE_Based) ? "LWE " : "RLWE ");
     assert(noof_operations >= 1 && noof_operations <= 2);
     FHE fhe;
 
     for (int ii = 0; ii < 30; ii++) {
-      FHE_Params params = fhe.Setup(2, 2, type, modul);
+      FHE_Params params = fhe.Setup(2, 2, type, message_modul);
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
     
-    long long *array_m[3];
-    for (int j = 0; j < 3; j++) {
-      array_m[j] = new long long [params[0].d];
-      for (int i = 0; i < params[0].d; i++) {
-	array_m[j][i] = R_Ring_Number::Clamp(rand(), modul);
-      }
-    }
-        
-    R_Ring_Number message1(modul, params[0].d, array_m[0]), message2(modul, params[0].d, array_m[1]), message4(modul, params[0].d, array_m[2]), message3(modul, params[0].d);
+    R_Ring_Number message1 = R_Ring_Number::Uniform_Rand(modul, params[0].d),
+      message2 = R_Ring_Number::Uniform_Rand(modul, params[0].d),
+      message4 = R_Ring_Number::Uniform_Rand(modul, params[0].d),
+      message3(modul, params[0].d);
     if (operation_type == FHE_Addition) {
       if (noof_operations == 1) {
 	message3 = (message1 + message2);
@@ -951,14 +939,14 @@ private:
 
       std::cout << "c1.q = " << c1.Get_Cipher().first.Get_q() << std::endl;
       std::cout << "c2.q = " << c2.Get_Cipher().first.Get_q() << std::endl;
-      int c1_s_dot = 0;
+      ZZ c1_s_dot = ZZ::zero();
       for (int i = 0; i < c1.Get_Cipher().first.Get_Dimension(); i++) {
 	c1_s_dot += c1.Get_Cipher().first[i][0] * sk_pk.first[c1.Get_Cipher().second][i][0];
       }
       std::cout << "<c1, s> = " << c1_s_dot << " = ";
       c1.Get_Cipher().first.Dot_Product(sk_pk.first[c1.Get_Cipher().second]).print();
       std::cout << std::endl;
-      int c2_s_dot = 0;
+      ZZ c2_s_dot = ZZ::zero();
       for (int i = 0; i < c2.Get_Cipher().first.Get_Dimension(); i++) {
 	c2_s_dot += c2.Get_Cipher().first[i][0] * sk_pk.first[c1.Get_Cipher().second][i][0];
       }
@@ -999,7 +987,8 @@ private:
       // 32477229033819617
       std::cout << "LLONG_MAX = "; my_number.print(); std::cout << std::endl;
       
-      int p = res_c.Get_Cipher().first.Get_q(), q = c3.Get_q();
+      ZZ p, q;
+      p = res_c.Get_Cipher().first.Get_q(), q = c3.Get_q();
 
       R_Ring_Vector c_powers2 = FHE::Powersof2(c3, c3.Get_q());
       assert(c3.Get_q() == sk_tensored.Get_q());
@@ -1011,7 +1000,7 @@ private:
       std::cout << " mod " << modul;
       std::cout << std::endl;
 
-      R_Ring_Vector c_scale = res_c.Scale(c_powers2, q, p, modul);
+      R_Ring_Vector c_scale = res_c.Scale(c_powers2, q, p, message_modul);
       for (int i = 0; i < c_scale.Get_Dimension(); i++) {
 	assert(R_Ring_Number::Clamp(c_scale[i][0], modul) == R_Ring_Number::Clamp(c_powers2[i][0], modul));
       }
@@ -1029,7 +1018,7 @@ private:
       R_Ring_Number r1(c3.Get_q(), c_powers2.Get_d()), r2(c3.Get_q(), c_scale.Get_d());
 
       std::cout << "q = " << q << " p = " << p << std::endl;
-      long long r1_int = 0, r2_int = 0;
+      ZZ r1_int = ZZ::zero(), r2_int = ZZ::zero();
       for (int i = 0; i < c_powers2.Get_Dimension(); i++) {
 	R_Ring_Number r1_new, r2_new;
 	R_Ring_Number a1 = c_powers2[i] * sk_tensored_bitdec[i], a2 = c_scale[i] * sk_tensored_bitdec[i];
@@ -1132,7 +1121,7 @@ private:
   }
 
   bool test_FHE_Operations(void) {
-    int modules[] = {2, 3, 5, 7, 31};
+    int modules[] = {97, 3, 5, 7, 31};
     char tests_names[][27] = {"test_FHE_One_Add_for_LWE  ",
 			    "test_FHE_One_Add_for_RLWE ",
 			    "test_FHE_One_Mult_for_LWE ",
@@ -1149,7 +1138,7 @@ private:
       if (i == 6) {
 	i = i;
       }
-    for (int j = 0; j < 5; j++) {
+    for (int j = 0; j < 1; j++) {
       std::cout << std::endl << "Module " << modules[j] << std::endl;
       if (!test_FHE_One_Add(types[i % 4], operation[i % 4], modules[j], i / 4 + 1)) {
 	return false;
@@ -1163,9 +1152,136 @@ private:
     std::cout << "test_FHE_LSS ";
     
     GLWE_Type type = LWE_Based; // RLWE_Based
-    int modul = 31;
+    int message_modul = 97;
+    ZZ modul;
+    modul = message_modul;
     FHE fhe;
     int L = 2;
+    FHE_Params params = fhe.Setup(3, L, type, message_modul);
+    std::cout << "params = ";
+    for (int i = 0; i < params.size(); i++) {
+      params[i].print();
+      if (i + 1 != params.size()) std::cout << ", ";
+    }
+    std::cout << std::endl;
+    
+    int noof_vectors = 5;
+    Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
+    FHE_Secret_Key_Type &sk = sk_pk.first;
+    FHE_Public_Key_Type &pk = sk_pk.second;
+
+    std::cout << "sk dimensions = (";
+    for (int i = 0; i < sk.size(); i++) {
+      std::cout << sk[i].Get_Dimension();
+      if (i + 1 != sk.size()) {
+	std::cout << ", ";
+      }
+    }
+    std::cout << ")" << std::endl;
+
+    std::cout << "pk dimensions = (";
+    for (int i = 0; i < pk.size(); i++) {
+      std::cout << "(" << pk[i].Get_Noof_Rows() << ", " << pk[i].Get_Noof_Columns() << ")";
+      if (i + 1 != pk.size()) {
+	std::cout << ", ";
+      }
+    }
+    std::cout << ")" << std::endl;
+
+    std::vector<ZZ *> array_m_x(noof_vectors), array_m_y(noof_vectors);
+    for (int j = 0; j < noof_vectors; j++) {
+      array_m_x[j] = new ZZ [params[0].d];
+      array_m_x[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), modul);
+      array_m_y[j] = new ZZ [params[0].d];
+      array_m_y[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), modul);
+    }
+    std::vector<R_Ring_Number> messages_x, messages_y;
+    std::vector<FHE_Cipher_Text> c_x, c_y;
+    for (int j = 0; j < noof_vectors; j++) {
+      messages_x.push_back(R_Ring_Number(modul, params[0].d, array_m_x[j]));
+      messages_y.push_back(R_Ring_Number(modul, params[0].d, array_m_y[j]));
+      c_x.push_back(fhe.Encrypt(params, &sk_pk.second, messages_x[j]));
+      c_x[c_x.size() - 1].Add_Secret_Key_Info(&sk_pk.first);
+      c_y.push_back(fhe.Encrypt(params, &sk_pk.second, messages_y[j]));
+      c_y[c_y.size() - 1].Add_Secret_Key_Info(&sk_pk.first);
+    }
+
+    for (int j = 0; j < noof_vectors; j++) {
+      delete [] array_m_x[j];
+      delete [] array_m_y[j];
+    }
+      
+    Pair<FHE_Cipher_Text, FHE_Cipher_Text> res_c = Compute_LSS<FHE_Cipher_Text>(c_x, c_y);
+    Pair<R_Ring_Number, R_Ring_Number> res = Compute_LSS<R_Ring_Number>(messages_x, messages_y);
+    Pair<R_Ring_Number, R_Ring_Number> res_d(res_c.first.Decrypt(params, sk_pk.first), res_c.second.Decrypt(params, sk_pk.first));
+    if (res.first != res_d.first || res.second != res_d.second) {
+      FAIL();
+      return false;
+    }
+    PASS();
+    return true;
+  }
+
+public:
+  void Run_Tests() {
+    if (/*!test_Zero_Number() ||
+	!test_Nonzero_Number() ||
+	!test_Number_Addition() ||
+	!test_Number_Multiplication() ||
+	!test_Number_Equality() ||
+	!test_Number_Reduction() ||
+
+	!test_GLWE_for_LWE() ||
+	!test_GLWE_for_RLWE() ||
+
+	!test_FHE_for_LWE() ||
+	!test_FHE_for_RLWE() ||
+	!test_Powersof2_BitDecomposition() ||
+	!test_Number_Scale() ||
+	!test_FHE_Switch_Keys() ||
+	!test_Multiple_Refresh(LWE_Based) ||
+	!test_Multiple_Refresh(RLWE_Based) ||
+	!test_FHE_Two_Mult(LWE_Based) ||
+	!test_FHE_Two_Mult(RLWE_Based) || */
+	!test_FHE_Operations() ||
+	!test_FHE_LSS()) {
+      std::cout << "Overall tests FAILED" << std::endl;
+    } else {
+      std::cout << "Overall tests PASSED" << std::endl;
+    }
+  }
+};
+
+class Timing_LSS {
+public:
+  /**
+   * Run_LSS function runs LSS on randomly generated data with parameters of FHE scheme that are adjusted to 
+   *  get better performance
+   * @param dimension - the dimension of the vectors being randomly generated
+   * @param bound - bound on the element of each vector
+   **/
+  static void Run_LSS(int dimension, int bound) {
+    GLWE_Type type = LWE_Based; // RLWE_Based
+
+    // choosing message module
+    ZZ zz_dimension = ZZ(INIT_VAL, dimension);
+    ZZ zz_bound = ZZ(INIT_VAL, bound);
+    ZZ lower_bound_on_modul;
+    lower_bound_on_modul = 2 * zz_dimension * zz_dimension * zz_bound * zz_bound * zz_bound + 1;
+    ZZ upper_bound_on_modul;
+    upper_bound_on_modul = 2 * lower_bound_on_modul; // by Bertrand's postulate we should find a prime in this range, otherwise something is going wrong....
+    ZZ modul;
+    modul = lower_bound_on_modul;
+    while (ProbPrime(modul) && modul < upper_bound_on_modul) {
+      modul++;
+    }
+    std::cout << "Message modul chosen = " << modul << std::endl;
+    /*
+    FHE fhe;
+    int L = 2;
+    fhe.Print_Possible_Parameters(3, L, type, modul);
+    */
+    /*
     FHE_Params params = fhe.Setup(3, L, type, modul);
     std::cout << "params = ";
     for (int i = 0; i < params.size(); i++) {
@@ -1197,12 +1313,12 @@ private:
     }
     std::cout << ")" << std::endl;
 
-    std::vector<long long *> array_m_x(noof_vectors), array_m_y(noof_vectors);
+    std::vector<ZZ *> array_m_x(noof_vectors), array_m_y(noof_vectors);
     for (int j = 0; j < noof_vectors; j++) {
-      array_m_x[j] = new long long [params[0].d];
-      array_m_x[j][0] = R_Ring_Number::Clamp(rand(), modul);
-      array_m_y[j] = new long long [params[0].d];
-      array_m_y[j][0] = R_Ring_Number::Clamp(rand(), modul);
+      array_m_x[j] = new ZZ [params[0].d];
+      array_m_x[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), modul);
+      array_m_y[j] = new ZZ [params[0].d];
+      array_m_y[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), modul);
     }
     std::vector<R_Ring_Number> messages_x, messages_y;
     std::vector<FHE_Cipher_Text> c_x, c_y;
@@ -1228,50 +1344,27 @@ private:
       return false;
     }
     PASS();
-    return true;
-  }
-
-public:
-  void Run_Tests() {
-    if (/*<!test_Zero_Number() ||
-	!test_Nonzero_Number() ||
-	!test_Number_Addition() ||
-	!test_Number_Multiplication() ||
-	!test_Number_Equality() ||
-	!test_Number_Reduction() ||
-
-	!test_GLWE_for_LWE() ||
-	!test_GLWE_for_RLWE() ||
-
-	!test_FHE_for_LWE() ||
-	!test_FHE_for_RLWE() ||
-	!test_Powersof2_BitDecomposition() ||
-	!test_Number_Scale() ||
-	!test_FHE_Switch_Keys() ||
-	!test_Multiple_Refresh(LWE_Based) ||
-	!test_Multiple_Refresh(RLWE_Based) || */
-	!test_FHE_Two_Mult(LWE_Based) ||
-	!test_FHE_Two_Mult(RLWE_Based) ||
-	!test_FHE_Operations() ||
-	!test_FHE_LSS()) {
-      std::cout << "Overall tests FAILED" << std::endl;
-    } else {
-      std::cout << "Overall tests PASSED" << std::endl;
-    }
-  }
+    return true; */
+  }  
 };
 
 int main (int argc, char * const argv[]) {
   std::cout << std::endl;
 
-  Test tests;
-  tests.Run_Tests();
+  //  Test tests;
+  //  tests.Run_Tests();
 
+  // remainder on how negative reals are cast to integers
   /*  std::cout << "-1 % 2 == " << (-1) % 2 << std::endl;
   std::cout << "-2 % 2 == " << (-2) % 2 << std::endl;
   std::cout << "-3 % 2 == " << (-3) % 2 << std::endl;
 
   std::cout << "(int)(-3.5) == " << (int)(-3.5) << std::endl;
   std::cout << "(int)(3.5) == " << (int)(3.5) << std::endl; */
+
+  Timing_LSS::Run_LSS(10, 256);
+
+  
   return 0;	
 }
+

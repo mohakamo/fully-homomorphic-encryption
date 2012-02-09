@@ -10,11 +10,14 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+#include "NTL/ZZ.h"
+
+NTL_CLIENT
 
 class R_Ring_Number {
-  long long q;
+  ZZ q;
   int d;
-  long long* vec;
+  ZZ* vec;
 public:
   ~R_Ring_Number() {
     if (vec != NULL) {
@@ -27,11 +30,11 @@ public:
     vec = NULL;
   }
   
-  R_Ring_Number(long long q_, int d_) {
+  R_Ring_Number(ZZ q_, int d_) {
     Initialize(q_, d_);
   }
   
-  R_Ring_Number(long long q_, int d_, long long array[]) {
+  R_Ring_Number(ZZ q_, int d_, ZZ array[]) {
     Initialize(q_, d_);
     for (int i = 0; i < d; i++) {
       vec[i] = array[i];
@@ -51,21 +54,21 @@ public:
   }
   
   // Assume Initialize is called on blank instance, otherwise there will be memory leak for vec
-  void Initialize(long long q_, int d_) {
+  void Initialize(ZZ q_, int d_) {
     assert(q_ != 0 && d_ != 0);
     q = q_;
     d = d_;
-    vec = new long long [2 * d];
+    vec = new ZZ [2 * d];
     for (int i = 0; i < 2 * d; i++) {
       vec[i] = 0;
     }
   }
 
-  long long Fast_Reduce(long long n) const {
+  ZZ Fast_Reduce(ZZ n) const {
     return Reduce(n);
     /*
-    long long q_half_b = q / 2;
-    long long q_half_a = -(q - 1) / 2;
+    ZZ q_half_b = q / 2;
+    ZZ q_half_a = -(q - 1) / 2;
     if (n > q_half_b) {
       n -= q;
     } else if (n < q_half_a) {
@@ -75,11 +78,11 @@ public:
     return n; */
   }
 
-  static long long Reduce(long long n, long long modul) {
+  static ZZ Reduce(ZZ n, ZZ modul) {
     // for odd module reduce to range [-(q - 1) / 2, (q - 1) / 2]
     // for even module reduce to range [(q - 2) / 2, q / 2]
-    long long q_half_b = modul / 2;
-    long long q_half_a = -(modul - 1) / 2;
+    ZZ q_half_b = modul / 2;
+    ZZ q_half_a = -(modul - 1) / 2;
     if (n > q_half_b) {
       n -= ((n - q_half_b - 1) / modul + 1) * modul;
     } else if (n < q_half_a) {
@@ -89,7 +92,7 @@ public:
     return n;
   }    
 
-  long long Reduce(long long n) const {
+  ZZ Reduce(ZZ n) const {
     return Reduce(n, q);
   }
 
@@ -136,7 +139,7 @@ public:
       if (vec != NULL) {
 	delete [] vec;
       }
-      vec = new long long [2 * v.d];
+      vec = new ZZ [2 * v.d];
       d = v.d;
     }
     for (int i = 0; i < d; i++) {
@@ -152,7 +155,7 @@ public:
     return *this;
   }
   
-  R_Ring_Number& operator =(long long n) {
+  R_Ring_Number& operator =(ZZ n) {
     assert(d != 0 && q > 0 && vec != NULL);
     for (int i = 0; i < d; i++) {
       vec[i] = 0;
@@ -161,7 +164,14 @@ public:
     return *this;
   }
   
-  R_Ring_Number operator *(long long constant) const {
+  R_Ring_Number& operator =(int n) {
+    ZZ n_zz;
+    n_zz = n;
+    *this = n_zz;
+    return *this;
+  }
+
+  R_Ring_Number operator *(ZZ constant) const {
     R_Ring_Number res(q, d);
     for (int i = 0; i < d; i++) {
       res.vec[i] = Reduce(vec[i] * constant);
@@ -221,15 +231,21 @@ public:
     return !((*this) == r);
   }
   
-  long long& operator [] (int index) {
+  ZZ& operator [] (int index) {
     return vec[index];
   }
 
-  static long long Clamp(long long n, long long modul) {
+  static ZZ Clamp(ZZ n, ZZ modul) {
     // for odd module reduce to range [-(q - 1) / 2, (q - 1) / 2]
     // for even module reduce to range [(q - 2) / 2, q / 2]
-    long long q_half_b = modul / 2;
-    long long q_half_a = -(modul - 1) / 2;
+    ZZ q_half_b, q_half_a;
+    if (modul % 2 == 1) {
+      q_half_b = (modul - 1) / 2;
+      q_half_a = -(modul - 1) / 2;
+    } else {
+      q_half_b = modul / 2;
+      q_half_a = -(modul - 2) / 2;
+    }
     if (n > q_half_b) {
       n -= ((n - q_half_b - 1) / modul + 1) * modul;
     } else if (n < q_half_a) {
@@ -239,20 +255,20 @@ public:
     return n;
   }
   
-  R_Ring_Number Clamp(long long modul) {
+  R_Ring_Number Clamp(ZZ modul) {
     for (int i = 0; i < d; i++) {
       vec[i] = Clamp(vec[i], modul);
     }
     return *this;
   }
 
-  R_Ring_Number Get_Clamped(long long modul) {
+  R_Ring_Number Get_Clamped(ZZ modul) {
     R_Ring_Number result(*this);
     result.Clamp(modul);
     return result;
   }
 
-  void Change_Modul(long long new_q) {
+  void Change_Modul(ZZ new_q) {
     assert(new_q > 0);
     q = new_q;
     for (int i = 0; i < d; i++) {
@@ -260,12 +276,12 @@ public:
     }
   }
 
-  void Increase_Modul(long long new_q) {
+  void Increase_Modul(ZZ new_q) {
     assert(q <= new_q);
     q = new_q;
   }
 
-  void Decrease_Modul(long long new_q) {
+  void Decrease_Modul(ZZ new_q) {
     assert(q >= new_q);
     for (int i = 0; i < d; i++) {
       vec[i] = Reduce(vec[i]);
@@ -273,55 +289,68 @@ public:
     q = new_q;
   }
 
-  R_Ring_Number Scale(long long q_, long long p, int r) {
+  R_Ring_Number Scale(ZZ q_, ZZ p, ZZ r) {
     if (r == 2) {
     assert(q_ == q);
     assert(p < q);
-    assert(p % 2 == 1 && q % 2 == 1);
+    if (p % 2 != 1 || q % 2 != 1) {
+      std::cout << "p % 2 = " << p % 2 << std::endl;
+      std::cout << "q % 2 = " << q % 2 << std::endl;
+      
+      assert(p % 2 == 1 && q % 2 == 1);
+    }
     assert(r == 2); // for simplicity, in future should be assert(r < p)
-    long double fraq = (p - 1) / (long double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
+    //    long double fraq = (p - 1) / (long double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
     R_Ring_Number res_v(p, d);
     for (int i = 0; i < d; i++) {
-      int desired_module = Clamp(vec[i], r);
-      long double tmp = vec[i] * fraq;
-      long long value[] = {tmp, tmp + ((tmp > 0) ? -1 : 1), tmp + ((tmp > 0) ? 1 : -1), tmp + 2, tmp - 2}; // TODO: think about better approach
-      double max_dist = LLONG_MAX;
+      ZZ desired_module = Clamp(vec[i], r);
+      ZZ tmp = (vec[i] * (p - 1)) / (q - 1);
+      ZZ value[] = {tmp, tmp + ((tmp > 0) ? -1 : 1), tmp + ((tmp > 0) ? 1 : -1), tmp + 2, tmp - 2}; // TODO: think about better approach
+      ZZ max_dist;
+      max_dist = -1;
       for (int j = 0; j < 5; j++) {
 	value[j] = Reduce(value[j], p);
-	double dist = fabs(tmp - value[j]);
-	if (Clamp(value[j], r) == desired_module && dist < max_dist) {
+	ZZ dist = abs(tmp - value[j]);
+	if (Clamp(value[j], r) == desired_module && (dist < max_dist || max_dist == -1)) {
 	  max_dist = dist;
 	  res_v[i] = value[j];
 	}
       }
-      assert(fabs(res_v[i] - tmp) <= 0.5 * r);
-      assert(max_dist != LLONG_MAX);
+      assert(2 * abs(res_v[i] - tmp) <= r);
+      assert(max_dist != -1);
     }
     return res_v;
     } else {
     assert(q_ == q);
     assert(p < q);
-    assert(p % 2 == 1 && q % 2 == 1);
-    double fraq = (p - 1) / (double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
+    if (p % r != 1 || q % r != 1) {
+      std::cout << "p = " << p << ", q = " << q << ", r = " << r << std::endl;
+      std::cout << "p % r = " << p % r << std::endl;
+      std::cout << "q % r = " << q % r << std::endl;
+      
+      assert(p % r == 1 && q % r == 1);
+    }
+    //    double fraq = (p - 1) / (double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
     R_Ring_Number res_v(p, d);
     for (int i = 0; i < d; i++) {
-      int desired_module = Clamp(vec[i], r);
-      long double tmp_d = (vec[i] / (double)(q - 1)) * (p - 1);
-      long long tmp = tmp_d;
+      ZZ desired_module = Clamp(vec[i], r);
+      ZZ tmp_d = (vec[i] * (p - 1)) / (q - 1);
+      ZZ tmp = tmp_d;
       tmp -= Clamp(tmp, r);
       tmp += desired_module;
-      long long value[] = {tmp, tmp + (tmp > 0 ? -r : r), tmp + (tmp > 0 ? r : -r), tmp - 2 * r, tmp + 2 * r}; // TODO: think about better approach
-      double max_dist = LLONG_MAX;
+      ZZ value[] = {tmp, tmp + (tmp > 0 ? -r : r), tmp + (tmp > 0 ? r : -r), tmp - 2 * r, tmp + 2 * r}; // TODO: think about better approach
+      ZZ max_dist;
+      max_dist = -1;
       for (int j = 0; j < 5; j++) {
 	value[j] = Reduce(value[j], p);
-	double dist = fabs(tmp_d - value[j]);
-	if (dist < max_dist && Clamp(value[j], r) == desired_module) {
+	ZZ dist = abs(tmp_d - value[j]);
+	if ((dist < max_dist || max_dist == -1) && Clamp(value[j], r) == desired_module) {
 	  max_dist = dist;
 	  res_v[i] = value[j];
 	}
       }
-      if (fabs(res_v[i] - tmp_d) > r + 1e-5) {
-	std::cout << "q = " << q << ", p = " << p << ", tmp_d = " << tmp_d << ", vec[i] = " << vec[i] << ", tmp = " << tmp << ", res_v[i] = " << res_v[i] << ", r = " << r << ", fraq = " << fraq << std::endl;
+      if (abs(res_v[i] - tmp_d) > r + 1) {
+	std::cout << "q = " << q << ", p = " << p << ", tmp_d = " << tmp_d << ", vec[i] = " << vec[i] << ", tmp = " << tmp << ", res_v[i] = " << res_v[i] << ", r = " << r << std::endl;
 	std::cout << "res_v[i] - tmp_d = " << res_v[i] - tmp_d << std::endl;
 	std::cout << "value[0] - tmp_d = " << value[0] - tmp_d << std::endl;
 	std::cout << "value[1] - tmp_d = " << value[1] - tmp_d << std::endl;
@@ -340,8 +369,7 @@ public:
 	std::cout << "sizeof(double) = " << sizeof(double) << std::endl;
 	exit(1);
       }
-      // assert(fabs(res_v[i] - tmp) <= 0.5 * r);
-      assert(max_dist != LLONG_MAX);
+      assert(max_dist != -1);
     }
     return res_v;
     }      
@@ -389,7 +417,7 @@ public:
     return cout;
     }*/
 
-  static R_Ring_Number Uniform_Rand(long long q, int d, long long bound = -1) {
+  static R_Ring_Number Uniform_Rand(ZZ q, int d, ZZ bound = ZZ(INIT_VAL, -1)) {
     // ALLERT!!! use Salso20 PRG - it is believed to be PRG, it is based on some hard problem
     //srand(time(NULL));
     if (bound != -1) {
@@ -399,7 +427,9 @@ public:
     }
     R_Ring_Number r(q, d);
     for (int i = 0; i < d; i++) {
-      r.vec[i] = /*rand() % bound;*/Clamp(rand(), bound);
+      ZZ random_number;
+      random_number = rand();
+      r.vec[i] = /*rand() % bound;*/Clamp(random_number, bound);
     }
     return r;
   }
@@ -408,11 +438,11 @@ public:
     return d;
   }
   
-  long long Get_q(void) const {
+  ZZ Get_q(void) const {
     return q;
   }
 
-  long long* Get_vec(void) const {
+  ZZ* Get_vec(void) const {
     return vec;
   }
 
@@ -420,8 +450,9 @@ public:
     return sqrt((double)Get_d());
   }
   
-  long long Get_Norm(void) const {
-    long long result = 0;
+  ZZ Get_Norm(void) const {
+    ZZ result;
+    result = 0;
     for (int i = 0; i < d; i++) {
       result += abs(vec[i]);
     }

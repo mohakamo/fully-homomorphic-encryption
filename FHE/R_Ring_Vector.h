@@ -26,7 +26,7 @@ public:
     vec = NULL;
   }
   
-  R_Ring_Vector(long long q, int d, int dimension)  {
+  R_Ring_Vector(ZZ q, int d, int dimension)  {
     vec = NULL;
     Initialize(q, d, dimension);
   }
@@ -66,7 +66,7 @@ public:
     return *this;
   }
 
-  void Initialize(long long q, int d, int dimension_) { 
+  void Initialize(ZZ q, int d, int dimension_) { 
    if (vec != NULL) {
       delete [] vec;
     }
@@ -133,12 +133,16 @@ public:
   }
 
   
-  R_Ring_Vector operator *(int number) const {
+  R_Ring_Vector operator *(ZZ number) const {
     R_Ring_Vector res(Get_q(), Get_d(), Get_Dimension());
     for (int i = 0; i < Get_Dimension(); i++) {
       res[i] = vec[i] * number;
     }
     return res;
+  }
+
+  R_Ring_Vector operator *(int number) const {
+    return *this * ZZ(INIT_VAL, number);
   }
 
   bool operator ==(const R_Ring_Vector &c) const {
@@ -157,7 +161,7 @@ public:
     return !(*this == c);
   }
   
-  long long Get_q(void) const {
+  ZZ Get_q(void) const {
     assert(dimension != 0);
     return vec[0].Get_q();
   }
@@ -167,7 +171,7 @@ public:
     return vec[0].Get_d();
   }
   
-  int Get_Field_Expansion(void) const {
+  double Get_Field_Expansion(void) const {
     assert(dimension != 0);
     return vec[0].Get_Field_Expansion();
   }
@@ -198,19 +202,19 @@ public:
     return res;
   }
 
-  void Increase_Modul(long long new_q) {
+  void Increase_Modul(ZZ new_q) {
     for (int i = 0; i < dimension; i++) {
       vec[i].Increase_Modul(new_q);
     }
   }
 
-  void Decrease_Modul(long long new_q) {
+  void Decrease_Modul(ZZ new_q) {
     for (int i = 0; i < dimension; i++) {
       vec[i].Decrease_Modul(new_q);
     }
   }
 
-  static R_Ring_Vector Uniform_Rand(long long  q, int d, int dimension, long long bound = -1) {
+  static R_Ring_Vector Uniform_Rand(ZZ  q, int d, int dimension, ZZ bound = ZZ(INIT_VAL, -1)) {
     R_Ring_Vector res(q, d, dimension);
     for (int i = 0; i < dimension; i++) {
       res[i] = R_Ring_Number::Uniform_Rand(q, d, bound);
@@ -218,13 +222,13 @@ public:
     return res;
   }
 
-  void Clamp(long long modul) {
+  void Clamp(ZZ modul) {
     for (int i = 0; i < dimension; i++) {
       vec[i].Clamp(modul);
     }
   }
 
-  R_Ring_Vector Get_Clamped(long long modul) {
+  R_Ring_Vector Get_Clamped(ZZ modul) {
     R_Ring_Vector res = *this;
     res.Clamp(modul);
     return res;

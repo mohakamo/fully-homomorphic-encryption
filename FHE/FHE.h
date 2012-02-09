@@ -21,12 +21,12 @@ class FHE_Cipher_Text {
 
   R_Ring_Vector Switch_Key(R_Ring_Matrix A, R_Ring_Vector c1);
  public: // for testing purposes
-  static R_Ring_Vector Scale(R_Ring_Vector &x, long long q, long long p, int r);
+  static R_Ring_Vector Scale(R_Ring_Vector &x, ZZ q, ZZ p, int r);
   void Update_To_Same_Level(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2);
  private:
   Pair<R_Ring_Vector, int> Add(Pair<R_Ring_Vector, int> c1, Pair<R_Ring_Vector, int> c2, bool sign = true, FHE_Secret_Key_Type *sk = NULL);
   Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> c1, Pair<R_Ring_Vector, int> c2, FHE_Secret_Key_Type *sk = NULL);
-  Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> c1, long long n, FHE_Secret_Key_Type *sk = NULL);
+  Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> c1, ZZ n, FHE_Secret_Key_Type *sk = NULL);
  public:
  FHE_Cipher_Text(const Pair<R_Ring_Vector, int> &cipher, FHE_Public_Key_Type *pk, int p = 2, FHE_Secret_Key_Type *sk = NULL) :
   my_cipher(Pair<R_Ring_Vector, int>(R_Ring_Vector(cipher.first), cipher.second)), my_pk(pk), my_p(p), my_sk(sk) {}
@@ -59,7 +59,7 @@ class FHE_Cipher_Text {
     return result;
   }
 
-  FHE_Cipher_Text operator *(long long n) {
+  FHE_Cipher_Text operator *(ZZ n) {
     return FHE_Cipher_Text(Mult(my_cipher, n, my_sk), my_pk, my_p, my_sk);
   }
   
@@ -100,9 +100,9 @@ class FHE_Cipher_Text {
 
 class FHE {
  public: // for testing purposes
-  static R_Ring_Vector Bit_Decomposition(R_Ring_Vector x, long long q) {
+  static R_Ring_Vector Bit_Decomposition(R_Ring_Vector x, ZZ q) {
     assert(q == x.Get_q());
-    int noof_vectors = ceil(log2(q));
+    int noof_vectors = NumBits(q);
     R_Ring_Vector res_r(q, x.Get_d(), noof_vectors * x.Get_Dimension());
     for (int i = 0; i < x.Get_Dimension(); i++) {
       for (int p = 0; p < noof_vectors; p++) {
@@ -111,8 +111,8 @@ class FHE {
 	    std::cout << "x = "; x.print(); std::cout << std::endl;
 	    exit(1);
 	    } */
-	  long long n = R_Ring_Number::Clamp(x[i][j], q);
-	  n = n + (n < 0 ? q : 0);
+	  ZZ n = R_Ring_Number::Clamp(x[i][j], q);
+	  n = n + (n < 0 ? q : ZZ::zero());
 	  //	  assert(n >= 0 && n < q);
 	  res_r[p + i * noof_vectors][j] = (n >> p) & 1; 
 	}
@@ -121,8 +121,8 @@ class FHE {
     return res_r;
   }
   
-  static R_Ring_Vector Powersof2(R_Ring_Vector x, long long q) {
-    int noof_vectors = ceil(log2(q));
+  static R_Ring_Vector Powersof2(R_Ring_Vector x, ZZ q) {
+    int noof_vectors = NumBits(q);
     R_Ring_Vector res_r(q, x.Get_d(), noof_vectors * x.Get_Dimension());
     int index;
     
@@ -130,7 +130,7 @@ class FHE {
       res_r[i * noof_vectors] = x[i];
       for (int p = 1; p < noof_vectors; p++) {
 	index = p + i * noof_vectors;
-	res_r[index] = res_r[index - 1] * 2; // not to have overflowing
+	res_r[index] = res_r[index - 1] * ZZ(INIT_VAL, 2); // not to have overflowing
       }
     }
     return res_r;
@@ -139,7 +139,7 @@ class FHE {
   R_Ring_Matrix Switch_Key_Gen(R_Ring_Vector s1, R_Ring_Vector s2, GLWE_Params params2) {
     // s1 should be in the bit representation, i.e. bounded moduli 2
     // assert(s1.Get_q() == 2);
-    int N = s1.Get_Dimension() * ceil(log2(s2.Get_q()));
+    int N = s1.Get_Dimension() * NumBits(s2.Get_q());
     params2.N = N;
     R_Ring_Matrix A = E.Public_Key_Gen(params2, s2);
     assert(A.Get_Noof_Columns() == s2.Get_Dimension());
@@ -152,29 +152,34 @@ class FHE {
     return 6;
   }
 
-  long long Choose_Noise_Bound(long long p, FHE_Params &params) { // suppose that all n are the same (for LWE scheme)
-    double max_fraq = 0;
+  ZZ Choose_Noise_Bound(ZZ p, FHE_Params &params) { // suppose that all n are the same (for LWE scheme)
+    ZZ max_fraq_num, max_fraq_den;
+    max_fraq_num = max_fraq_den = -1;
     int d = params[params.size() - 1].d;
-    double field_expansion = sqrt(d);
+    int field_expansion = sqrt(d);
     int L = params.size() - 1;
     int n = params[L].n;
     for (int i = 1; i < params.size(); i++) {
-      double fraq = params[i].q / (double)params[i - 1].q;
-      if (fraq > max_fraq) {
-	max_fraq = fraq;
+      ZZ fraq_num, fraq_den;
+      fraq_num = params[i].q;
+      fraq_den = params[i - 1].q;
+      if (max_fraq_num == -1 || fraq_num * max_fraq_den > max_fraq_num * fraq_den) {
+	max_fraq_num = fraq_num;
+	max_fraq_den = fraq_den;
       }
     }
     //    assert(max_fraq > 0);
-    if (max_fraq <= 0) {return -1;}
-    long long noise_UB = (max_fraq / 2 / field_expansion - 1) / p / d / (2 * params[L].n + 1) / ceil(log2(params[L].q)); // noise upper bound
-    if (noise_UB <= 1) {return -1;}
-    long long noise_LB_temp = (2 * d * field_expansion * (n + 1) * n / 2 * ceil(log2(params[L].q)) - 1) / d; // noise lower bound without denominator
-    long long noise_LB = 0; // noise lower bound
+    if (max_fraq_num <= 0) {return ZZ(INIT_VAL, -1);}
+    ZZ noise_UB = (max_fraq_num / max_fraq_den / 2 / field_expansion - 1) / p / d / (2 * params[L].n + 1) / NumBits(params[L].q); // noise upper bound
+    if (noise_UB <= 1) {return ZZ(INIT_VAL, -1);}
+    ZZ noise_LB_temp;
+    noise_LB_temp = (2 * d * (int)field_expansion * (n + 1) * n / 2 * NumBits(params[L].q) - 1) / d; // noise lower bound without denominator
+    ZZ noise_LB = ZZ::zero(); // noise lower bound
 
     // computing denominators and trying to find lower bound
     for (int j = 1; j < params.size(); j++) {
-      long long noise_LB_den = p * (2 * params[L].n + 1) * ceil(log2(params[L].q)) - 4 * (params[L].n + 1) * params[L].n / 2 * ceil(log2(params[j].q)) * ceil(log2(params[j - 1].q));
-      long long potential_LB = noise_LB_temp / noise_LB_den;
+      ZZ noise_LB_den = p * (2 * params[L].n + 1) * NumBits(params[L].q) - 4 * (params[L].n + 1) * params[L].n / 2 * NumBits(params[j].q) * NumBits(params[j - 1].q);
+      ZZ potential_LB = noise_LB_temp / noise_LB_den;
       if (noise_LB_den > 0 && potential_LB > noise_LB) {
 	noise_LB = potential_LB;
       } else if (noise_LB_den < 0 && -potential_LB < noise_UB) {
@@ -183,14 +188,47 @@ class FHE {
     }
     std::cout << "Theoretical noise bound = [" << noise_LB << ", " << noise_UB << "]" << std::endl;
     if (noise_LB > noise_UB || noise_UB <= 1) {
-      return -1;
+      return ZZ(INIT_VAL, -1);
     }
-    return noise_LB + 1 > 1 ? noise_LB + 1 : 2; // trying to make noise as small as possible
+    return noise_LB + 1 > 1 ? noise_LB + 1 : ZZ(INIT_VAL, 2); // trying to make noise as small as possible
   }
 
   GLWE E;
   int my_L;
  public:
+  void Print_Possible_Parameters(int L, GLWE_Type type, ZZ modul) {
+    /*
+    // inifinite cycle inside: interrupt manually
+    bool found_noise_bound = false;
+    ZZ x, y, q0, mu, q0_l, mu_l;
+    q0_l = NumBits(modul) + 1;
+    mu_l = 3;
+    
+    for (y = 0; ; y++) {
+      for (x = 0; x <= y; x++) {
+	mu = x + mu_l;
+	q0 = y - x + q0_l;
+
+	std::vector<GLWE_Params> try_params(L + 1);
+	for (int i = 0; i <= L; i++) {
+	  ZZ modul_size;
+	  modul_size = q0 + i * mu;
+	  try {
+	    try_params[i] = E.Setup(100, modul_size, type, modul); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
+	  } catch (bool b) {
+	    std::cout << "Exception caught" << std::endl;
+	    continue;
+	  }
+	}
+
+	if (Choose_Noise_Bound(modul, try_params) > 0) {
+	  found_noise_bound = true;
+	  std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl << std::endl;
+	}
+      }
+      }*/
+  }
+
   /**
    * Setting up parameters
    * @param lambda	security parameter, 100 is a good value for it
@@ -207,7 +245,7 @@ class FHE {
     int n = E.Choose_n(lambda, 0, b);
     int mu = ceil(4 * sqrt((double)d));
     
-    while (q_size < 8 * sizeof(long long) && ((1 << q_size) - 2) / q_size < 2 * p * d * (2 * n + 1)) {
+    while (q_size < 8 * sizeof(ZZ) && ((1 << q_size) - 2) / q_size < 2 * p * d * (2 * n + 1)) {
       q_size++;
     }
     q_size += 2;
@@ -217,8 +255,11 @@ class FHE {
     mu = 12;
 
     /*** Choosing modules step ***/
-    for (int q0 = 5; q0 < 30; q0++) {
-      for (int mu = 3; L * mu + q0 < 31 && mu < q0; mu++) {
+    /*
+    bool found_noise_bound = false;
+    for (int q0 = 5; q0 < 60; q0++) {
+      //      std::cout << "q0 = " << q0 << std::endl;
+      for (int mu = 3; L * mu + q0 < 61 && mu < q0; mu++) {
 
 	std::vector<GLWE_Params> try_params(L + 1);
 	for (int i = 0; i <= L; i++) {
@@ -230,20 +271,25 @@ class FHE {
 	    continue;
 	  }
 	}
-	std::cout << "q0 = " << q0 << ", mu = " << mu << " ";
 
-	if (Choose_Noise_Bound(p, try_params) > 0) {
+	if (Choose_Noise_Bound(ZZ(INIT_VAL, p), try_params) > 0) {
+	  found_noise_bound = true;
 	  std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl;
 	}
       }
     }
-    q_size = 19;
-    mu = 18;
-    int B = 3;
+    if (!found_noise_bound) {
+      std::cout << "Noise bound not found" << std::endl;
+      std::cout << "Message modul = " << p << std::endl;
+      assert(false);
+    }*/
+    q_size = 23;
+    mu = 16;
+    int B = 5;
     /*
     //    mu = 9;
     int mu_low_bound = mu;
-    while ((q_size + (L - 1) * mu) * 2 >= sizeof(long long) * 8 - 1 && mu >= mu_low_bound) {
+    while ((q_size + (L - 1) * mu) * 2 >= sizeof(ZZ) * 8 - 1 && mu >= mu_low_bound) {
       mu--;
       std::cout << "!";
     }
@@ -252,23 +298,23 @@ class FHE {
     std::vector<GLWE_Params> params(L + 1);
     for (int i = 0; i <= L; i++) {
       int modul_size = q_size + i * mu;
-      //      if (modul_size * 2 >= sizeof(long long) * 8 - 1) {
-      //	std::cout << "ALARM: moduls_size = " << modul_size << " > " << (sizeof(long long) * 8 - 1) / 2 << std::endl;
-      //	assert(modul_size * 2 < sizeof(long long) * 8 - 1); // to make addition, we need module twice smaller
+      //      if (modul_size * 2 >= sizeof(ZZ) * 8 - 1) {
+      //	std::cout << "ALARM: moduls_size = " << modul_size << " > " << (sizeof(ZZ) * 8 - 1) / 2 << std::endl;
+      //	assert(modul_size * 2 < sizeof(ZZ) * 8 - 1); // to make addition, we need module twice smaller
       //      }
       params[i] = E.Setup(lambda, modul_size, b, p); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
     }
     /*
-    long long min_fraq = ceil(params[L].q / (double)params[L - 1].q);
+    ZZ min_fraq = ceil(params[L].q / (double)params[L - 1].q);
     for (int i = L - 1; i >= 1; i--) {
       if (ceil(params[i].q / (double)params[i - 1].q) < min_fraq) {
 	min_fraq = ceil(params[i].q / (double)params[i - 1].q);
       }
     }
-    long long B = 1 + p * params[L].d * params[L].N * params[L].B;
-    long long B_upper_bound = min_fraq / 2 / sqrt(1.0 * d);
-    long long B_lower_bound = 2 * (sqrt(1.0 * d) * ((params[L].n * (params[L].n + 1)) / 2) * ceil(log2(params[L].q)) * (params[L].d + 2 * sqrt(1.0 * params[L].d) * params[L].B));
-    long long Bx = 2;
+    ZZ B = 1 + p * params[L].d * params[L].N * params[L].B;
+    ZZ B_upper_bound = min_fraq / 2 / sqrt(1.0 * d);
+    ZZ B_lower_bound = 2 * (sqrt(1.0 * d) * ((params[L].n * (params[L].n + 1)) / 2) * ceil(log2(params[L].q)) * (params[L].d + 2 * sqrt(1.0 * params[L].d) * params[L].B));
+    ZZ Bx = 2;
     if (B < B_lower_bound) {
       std::cout << "Adjusting noise " << std::endl;
       std::cout << "params[L].d = " << params[L].d << ", params[L].N = " << params[L].N << ", params[L].B = " << params[L].B << std::endl;
@@ -301,7 +347,7 @@ class FHE {
       params[L - i].B = B;//params[0].B;
     }
     // print noise bounds parameters and assert if the interval is empty
-    Choose_Noise_Bound(p, params);
+    Choose_Noise_Bound(ZZ(INIT_VAL, p), params);
     // std::cout << "B = " << params[0].B << std::endl;
     return params;
   }
@@ -352,11 +398,11 @@ class FHE {
 	  } */
 
 	R_Ring_Vector s_i_prime_prime = Bit_Decomposition(s_i_prime, params[i + 1].q);
-	assert(s_i_prime_prime.Get_Dimension() == s_i_prime.Get_Dimension() * ceil(log2(params[i + 1].q)));
+	assert(s_i_prime_prime.Get_Dimension() == s_i_prime.Get_Dimension() * NumBits(params[i + 1].q));
 	R_Ring_Matrix tau_i = Switch_Key_Gen(s_i_prime_prime, s_i, params[i]); // give the bigger modul
 	assert(tau_i.Get_Noof_Columns() == s_i.Get_Dimension());
 	assert(s_i.Get_Dimension() == params[i].n + 1);
-	assert(tau_i.Get_Noof_Rows() == s_i_prime_prime.Get_Dimension() * ceil(log2(params[i].q)));
+	assert(tau_i.Get_Noof_Rows() == s_i_prime_prime.Get_Dimension() * NumBits(params[i].q));
 	pk[my_L + i + 1] = tau_i;
       }
     }
