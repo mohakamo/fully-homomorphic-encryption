@@ -1,6 +1,7 @@
 #include "FHE.h"
 #include "LSS.h"
 #include <iostream>
+#include <time.h>
 
 enum FHE_Operation {FHE_Addition = 1, FHE_Multiplication};
 
@@ -164,7 +165,7 @@ private:
     for (int ii = 0; ii < 9; ii++) {
     for (int s = 0; s < 30; s++) {
       int modul = moduls[ii];
-      GLWE_Params params = glwe.Setup(2, 13, type, modul);
+      GLWE_Params params = glwe.Setup(2, 13, type, ZZ(INIT_VAL, modul));
       assert(modul < params.q);
       GLWE_Secret_Key_Type sk = glwe.Secret_Key_Gen(params);
       R_Ring_Vector ksi;
@@ -259,7 +260,7 @@ private:
       ZZ modul = ZZ(INIT_VAL, modules[mi]);
     for (int s = 0; s < 30; s++) {
       std::cout << s << std::endl;
-      FHE_Params params = fhe.Setup(2, 2, type, modules[mi]);
+      FHE_Params params = fhe.Setup(2, 2, type, modul);
       Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
       
       R_Ring_Number message = R_Ring_Number::Uniform_Rand(modul, params[0].d);
@@ -437,7 +438,7 @@ private:
       int modul = modules[modul_index];
     for (int s = 0; s < 30; s++) {
       std::cout << s << std::endl;
-      FHE_Params params = fhe.Setup(2, 2, types[j], modul);
+      FHE_Params params = fhe.Setup(2, 2, types[j], ZZ(INIT_VAL, modul));
       Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
       
       R_Ring_Number message = R_Ring_Number::Uniform_Rand(ZZ(INIT_VAL, modul), params[0].d);
@@ -572,7 +573,7 @@ private:
 	  powersof2_tensored_c1.Dot_Product(secret_tensored_prime).print();
 	  std::cout << std::endl;
 
-	  R_Ring_Vector cc = FHE_Cipher_Text::Scale(powersof2_tensored_c1, c.Get_Cipher().first.Get_q(), tc.Get_Cipher().first.Get_q(), modul);
+	  R_Ring_Vector cc = FHE_Cipher_Text::Scale(powersof2_tensored_c1, c.Get_Cipher().first.Get_q(), tc.Get_Cipher().first.Get_q(), ZZ(INIT_VAL, modul));
 	  std::cout << "<c, s> after scale = ";
 	  cc.Increase_Modul(c.Get_Cipher().first.Get_q());
 	  cc.Dot_Product(secret_tensored_prime).Clamp(tc.Get_Cipher().first.Get_q()).print();
@@ -640,7 +641,7 @@ private:
 
     for (int t = 0; t < 1; t++) {
       int modul = modules[t];
-    FHE_Params params = fhe.Setup(2, L, type, modul);
+      FHE_Params params = fhe.Setup(2, L, type, ZZ(INIT_VAL, modul));
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
     for (int s = 0; s < 30; s++) {
     R_Ring_Number message = R_Ring_Number::Uniform_Rand(ZZ(INIT_VAL, modul), params[0].d);
@@ -653,7 +654,7 @@ private:
       for (int j = 0; j < dimension; j++) {
 	cv[j] = c.Get_Cipher().first[j];
       }
-      FHE_Cipher_Text new_cipher(Pair<R_Ring_Vector, int>(cv, c.Get_Cipher().second), &sk_pk.second, modul);
+      FHE_Cipher_Text new_cipher(Pair<R_Ring_Vector, int>(cv, c.Get_Cipher().second), &sk_pk.second, ZZ(INIT_VAL, modul));
       new_cipher.Add_Secret_Key_Info(&sk_pk.first);
       new_cipher.Refresh(new_cipher.Get_Cipher(), &sk_pk.second, &sk_pk.first);
       R_Ring_Number m = new_cipher.Decrypt(params, sk_pk.first);
@@ -689,7 +690,7 @@ private:
 
     for (int t = 0; t < 1; t++) {
       int modul = modules[t];
-      FHE_Params params = fhe.Setup(2, L, type, modul);
+      FHE_Params params = fhe.Setup(2, L, type, ZZ(INIT_VAL, modul));
       Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
       for (int s = 0; s < 30; s++) {
 	ZZ *array_m[3];
@@ -744,7 +745,7 @@ private:
 	  for (int j = 0; j < dimension; j++) {
 	    c3[j] = c[2].Get_Cipher().first[j];
 	  }
-	  FHE_Cipher_Text res_c3(Pair<R_Ring_Vector, int>(c3, c[2].Get_Cipher().second), &sk_pk.second, modul);
+	  FHE_Cipher_Text res_c3(Pair<R_Ring_Vector, int>(c3, c[2].Get_Cipher().second), &sk_pk.second, ZZ(INIT_VAL, modul));
 	  res_c3.Refresh(res_c3.Get_Cipher(), &sk_pk.second);
 	  std::cout << "Decr(Refresh(Encr(m3))) = "; res_c3.Decrypt(params, sk_pk.first).print(); std::cout << std::endl;
 	  FHE_Cipher_Text res_c4 = res_c * res_c3;
@@ -804,7 +805,7 @@ private:
     FHE fhe;
 
     for (int ii = 0; ii < 30; ii++) {
-      FHE_Params params = fhe.Setup(2, 2, type, message_modul);
+      FHE_Params params = fhe.Setup(2, 2, type, modul);
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
     
     R_Ring_Number message1 = R_Ring_Number::Uniform_Rand(modul, params[0].d),
@@ -1000,7 +1001,7 @@ private:
       std::cout << " mod " << modul;
       std::cout << std::endl;
 
-      R_Ring_Vector c_scale = res_c.Scale(c_powers2, q, p, message_modul);
+      R_Ring_Vector c_scale = res_c.Scale(c_powers2, q, p, modul);
       for (int i = 0; i < c_scale.Get_Dimension(); i++) {
 	assert(R_Ring_Number::Clamp(c_scale[i][0], modul) == R_Ring_Number::Clamp(c_powers2[i][0], modul));
       }
@@ -1157,7 +1158,7 @@ private:
     modul = message_modul;
     FHE fhe;
     int L = 2;
-    FHE_Params params = fhe.Setup(3, L, type, message_modul);
+    FHE_Params params = fhe.Setup(3, L, type, modul);
     std::cout << "params = ";
     for (int i = 0; i < params.size(); i++) {
       params[i].print();
@@ -1253,68 +1254,65 @@ public:
 };
 
 class Timing_LSS {
+  FHE fhe;
+  FHE_Params params;
+  FHE_Secret_Key_Type sk;
+  FHE_Public_Key_Type pk;
+  ZZ modul;
+  int L;
+
+  int my_max_dimension;
+  int my_bound;
+
+  void IncreaseL() {
+    L++;
+    Setup(my_max_dimension, my_bound);
+  }
 public:
+  Timing_LSS() : L(3) {}
   /**
-   * Run_LSS function runs LSS on randomly generated data with parameters of FHE scheme that are adjusted to 
-   *  get better performance
-   * @param dimension - the dimension of the vectors being randomly generated
-   * @param bound - bound on the element of each vector
+   * Setup FHE scheme
+   * @param max_dimension - maximum desired dimension
+   * @param bound - bound on absolute value of vector's elements (required to choose module ladder)
    **/
-  static void Run_LSS(int dimension, int bound) {
+  void Setup(int max_dimension, int bound) {
+    my_max_dimension = max_dimension;
+    my_bound = bound;
     GLWE_Type type = LWE_Based; // RLWE_Based
 
     // choosing message module
-    ZZ zz_dimension = ZZ(INIT_VAL, dimension);
+    ZZ zz_dimension = ZZ(INIT_VAL, max_dimension);
     ZZ zz_bound = ZZ(INIT_VAL, bound);
     ZZ lower_bound_on_modul;
     lower_bound_on_modul = 2 * zz_dimension * zz_dimension * zz_bound * zz_bound * zz_bound + 1;
     ZZ upper_bound_on_modul;
     upper_bound_on_modul = 2 * lower_bound_on_modul; // by Bertrand's postulate we should find a prime in this range, otherwise something is going wrong....
-    ZZ modul;
     modul = lower_bound_on_modul;
     while (ProbPrime(modul) && modul < upper_bound_on_modul) {
       modul++;
     }
-    std::cout << "Message modul chosen = " << modul << std::endl;
-    /*
-    FHE fhe;
-    int L = 2;
-    fhe.Print_Possible_Parameters(3, L, type, modul);
-    */
-    /*
-    FHE_Params params = fhe.Setup(3, L, type, modul);
-    std::cout << "params = ";
-    for (int i = 0; i < params.size(); i++) {
-      params[i].print();
-      if (i + 1 != params.size()) std::cout << ", ";
-    }
-    std::cout << std::endl;
+    //std::cout << "Message modul chosen = " << modul << std::endl;
+    //fhe.Print_Possible_Parameters(L, type, modul);
+    //return;
+    params = fhe.Setup(3, L, type, modul);
     
-    int noof_vectors = 5;
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
-    FHE_Secret_Key_Type &sk = sk_pk.first;
-    FHE_Public_Key_Type &pk = sk_pk.second;
+    sk = sk_pk.first;
+    pk = sk_pk.second;
+  }
+  /**
+   * Run_LSS function runs LSS on randomly generated data with parameters of FHE scheme that are adjusted to 
+   *  get better performance
+   * @param dimension - the dimension of the vectors being randomly generated
+   * @param bound - bound on absolute value of vector's elements
+   * @return time spent on computing LSS, not including scheme setup
+   **/
+  void Run_LSS(int dimension, int bound) {
+    clock_t start, total_start = clock();
+    double time = 0;
 
-    std::cout << "sk dimensions = (";
-    for (int i = 0; i < sk.size(); i++) {
-      std::cout << sk[i].Get_Dimension();
-      if (i + 1 != sk.size()) {
-	std::cout << ", ";
-      }
-    }
-    std::cout << ")" << std::endl;
-
-    std::cout << "pk dimensions = (";
-    for (int i = 0; i < pk.size(); i++) {
-      std::cout << "(" << pk[i].Get_Noof_Rows() << ", " << pk[i].Get_Noof_Columns() << ")";
-      if (i + 1 != pk.size()) {
-	std::cout << ", ";
-      }
-    }
-    std::cout << ")" << std::endl;
-
-    std::vector<ZZ *> array_m_x(noof_vectors), array_m_y(noof_vectors);
-    for (int j = 0; j < noof_vectors; j++) {
+    std::vector<ZZ *> array_m_x(dimension), array_m_y(dimension);
+    for (int j = 0; j < dimension; j++) {
       array_m_x[j] = new ZZ [params[0].d];
       array_m_x[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), modul);
       array_m_y[j] = new ZZ [params[0].d];
@@ -1322,29 +1320,67 @@ public:
     }
     std::vector<R_Ring_Number> messages_x, messages_y;
     std::vector<FHE_Cipher_Text> c_x, c_y;
-    for (int j = 0; j < noof_vectors; j++) {
+    start = clock();
+    for (int j = 0; j < dimension; j++) {
       messages_x.push_back(R_Ring_Number(modul, params[0].d, array_m_x[j]));
       messages_y.push_back(R_Ring_Number(modul, params[0].d, array_m_y[j]));
-      c_x.push_back(fhe.Encrypt(params, &sk_pk.second, messages_x[j]));
-      c_x[c_x.size() - 1].Add_Secret_Key_Info(&sk_pk.first);
-      c_y.push_back(fhe.Encrypt(params, &sk_pk.second, messages_y[j]));
-      c_y[c_y.size() - 1].Add_Secret_Key_Info(&sk_pk.first);
+      c_x.push_back(fhe.Encrypt(params, &pk, messages_x[j]));
+      c_x[c_x.size() - 1].Add_Secret_Key_Info(&sk);
+      c_y.push_back(fhe.Encrypt(params, &pk, messages_y[j]));
+      c_y[c_y.size() - 1].Add_Secret_Key_Info(&sk);
     }
+    time = (clock() - start) / (double)CLOCKS_PER_SEC;
+    std::cout << "Time to encrypt = " << time << std::endl;
 
-    for (int j = 0; j < noof_vectors; j++) {
+    for (int j = 0; j < dimension; j++) {
       delete [] array_m_x[j];
       delete [] array_m_y[j];
     }
       
+    start = clock();
     Pair<FHE_Cipher_Text, FHE_Cipher_Text> res_c = Compute_LSS<FHE_Cipher_Text>(c_x, c_y);
+    time = (clock() - start) / (double)CLOCKS_PER_SEC;
+    std::cout << "Time to compute on the cipher = " << time << std::endl;
+
+    start = clock();
     Pair<R_Ring_Number, R_Ring_Number> res = Compute_LSS<R_Ring_Number>(messages_x, messages_y);
-    Pair<R_Ring_Number, R_Ring_Number> res_d(res_c.first.Decrypt(params, sk_pk.first), res_c.second.Decrypt(params, sk_pk.first));
+    time = (clock() - start) / (double)CLOCKS_PER_SEC;
+    std::cout << "Time to compute in the clear = " << time << std::endl;
+
+    start = clock();
+    Pair<R_Ring_Number, R_Ring_Number> res_d(res_c.first.Decrypt(params, sk), res_c.second.Decrypt(params, sk));
+    time = (clock() - start) / (double)CLOCKS_PER_SEC;
+    std::cout << "Time to decrypt = " << time << std::endl;
+
     if (res.first != res_d.first || res.second != res_d.second) {
-      FAIL();
-      return false;
+      std::cout << "FAILUR!" << std::endl;
+      std::cout << "params = ";
+      for (int i = 0; i < params.size(); i++) {
+	params[i].print();
+	if (i + 1 != params.size()) std::cout << ", ";
+      }
+      std::cout << std::endl;
+      
+      std::cout << "sk dimensions = (";
+      for (int i = 0; i < sk.size(); i++) {
+	std::cout << sk[i].Get_Dimension();
+	if (i + 1 != sk.size()) {
+	  std::cout << ", ";
+	}
+      }
+      std::cout << ")" << std::endl;
+      
+      std::cout << "pk dimensions = (";
+      for (int i = 0; i < pk.size(); i++) {
+	std::cout << "(" << pk[i].Get_Noof_Rows() << ", " << pk[i].Get_Noof_Columns() << ")";
+	if (i + 1 != pk.size()) {
+	  std::cout << ", ";
+	}
+      }
+      std::cout << ")" << std::endl;
     }
-    PASS();
-    return true; */
+
+    std::cout << "Total time = " <<  (clock() - total_start) / (double)CLOCKS_PER_SEC << std::endl;
   }  
 };
 
@@ -1362,8 +1398,16 @@ int main (int argc, char * const argv[]) {
   std::cout << "(int)(-3.5) == " << (int)(-3.5) << std::endl;
   std::cout << "(int)(3.5) == " << (int)(3.5) << std::endl; */
 
-  Timing_LSS::Run_LSS(10, 256);
+  Timing_LSS timingLSS;
+  const int max_dimension = 100;
+  const int elements_modul = 2;
+  timingLSS.Setup(max_dimension, elements_modul);
 
+  for (int dimension = 2; dimension < max_dimension; dimension++) {
+    std::cout << "dimension = " << dimension << std::endl;
+    timingLSS.Run_LSS(elements_modul, dimension);
+    std::cout << std::endl;
+  }
   
   return 0;	
 }

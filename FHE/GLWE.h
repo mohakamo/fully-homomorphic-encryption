@@ -12,11 +12,11 @@
 class GLWE_Params {
 public:
   GLWE_Params() {
-    d = n = N = p = 0;
-    B = q = ZZ::zero();
+    d = n = N = 0;
+    p = B = q = ZZ::zero();
     noise = NULL;
   }
-  GLWE_Params(ZZ q, int d, int n, int N, ZZ B, int p,  R_Ring_Number (*noise)(ZZ q, int d, ZZ B, int p)) {
+  GLWE_Params(ZZ q, int d, int n, int N, ZZ B, ZZ p,  R_Ring_Number (*noise)(ZZ q, int d, ZZ B, ZZ p)) {
     this->q = q;
     this->d = d;
     this->n = n;
@@ -25,11 +25,10 @@ public:
     this->p = p;
     this->noise = noise;
   }
-  ZZ B, q;
+  ZZ B, q, p;
   int d, n, N;
-  int p;
   /*** Noise distribution ***/
-  R_Ring_Number (*noise)(ZZ q, int d, ZZ B, int p);
+  R_Ring_Number (*noise)(ZZ q, int d, ZZ B, ZZ p);
   
   R_Ring_Number ksi() {
     return noise(q, d, B, p);
@@ -72,7 +71,7 @@ class GLWE {
     return true;
     }*/
 
-  static ZZ Choose_q(int mu, int r) {
+  static ZZ Choose_q(int mu, ZZ r) {
     ZZ n;
     n = (ZZ(INIT_VAL, 1) << mu) - 1;
     while (n > (ZZ(INIT_VAL, 1) << (mu - 1))) {
@@ -81,8 +80,8 @@ class GLWE {
       }
       n--;
     }
-    std::cout << "mu = " << mu << std::endl;
-    std::cout << "r = " << r << std::endl;
+    //    std::cout << "mu = " << mu << std::endl;
+    //    std::cout << "r = " << r << std::endl;
     // did not find modul that is equal to 1 mod r
     throw false;
     //    assert(false);
@@ -109,7 +108,7 @@ class GLWE {
     return ceil((2 * n + 1) * NumBits(q));
   }
 
-  static R_Ring_Number Noise(ZZ q, int d, ZZ B, int p) {
+  static R_Ring_Number Noise(ZZ q, int d, ZZ B, ZZ p) {
     /*
     // TODO: to be implemented
     // int bound = floor(sqrt(q * 0.2 / Choose_N(n, q)));
@@ -130,7 +129,7 @@ class GLWE {
     return res;
   }
 
-  static ZZ Choose_B(ZZ q, int d, int N, int p) {
+  static ZZ Choose_B(ZZ q, int d, int N, ZZ p) {
     /*    ZZ B = floor((q - 2) / 2.0 / p / d / (double)N);
     if (B <= 1) {
       std::cout << "suggested q : q / log2(q) >= " << 4 * p * d * N / ceil(log2(1.0 * q)) + 2 << std::endl;
@@ -145,7 +144,7 @@ class GLWE {
     return ZZ(INIT_VAL, 2);//B > 2 ? B : 2;
   }
 public:	
-  GLWE_Params Setup(int lambda, int mu, GLWE_Type b, int p = 2) const {
+  GLWE_Params Setup(int lambda, int mu, GLWE_Type b, ZZ p = ZZ(INIT_VAL, 2)) const {
     ZZ q;
     q = Choose_q(mu, p);
     int n = Choose_n(lambda, mu, b);
@@ -310,7 +309,7 @@ public:
     /*std::cout << "clamped1 = ";
     clamped1.print();
     std::cout << std::endl;*/
-    R_Ring_Number clamped2 = clamped1.Clamp(ZZ(INIT_VAL, params.p));
+    R_Ring_Number clamped2 = clamped1.Clamp(params.p);
     return clamped2;
   }
 };

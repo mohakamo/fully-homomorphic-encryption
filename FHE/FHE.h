@@ -17,21 +17,23 @@ class FHE_Cipher_Text {
   Pair<R_Ring_Vector, int> my_cipher;
   FHE_Public_Key_Type *my_pk;
   FHE_Secret_Key_Type *my_sk;
-  int my_p;
+  ZZ my_p;
 
   R_Ring_Vector Switch_Key(R_Ring_Matrix A, R_Ring_Vector c1);
  public: // for testing purposes
-  static R_Ring_Vector Scale(R_Ring_Vector &x, ZZ q, ZZ p, int r);
+  static R_Ring_Vector Scale(R_Ring_Vector &x, ZZ q, ZZ p, ZZ r);
   void Update_To_Same_Level(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2);
  private:
   Pair<R_Ring_Vector, int> Add(Pair<R_Ring_Vector, int> c1, Pair<R_Ring_Vector, int> c2, bool sign = true, FHE_Secret_Key_Type *sk = NULL);
   Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> c1, Pair<R_Ring_Vector, int> c2, FHE_Secret_Key_Type *sk = NULL);
   Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> c1, ZZ n, FHE_Secret_Key_Type *sk = NULL);
  public:
- FHE_Cipher_Text(const Pair<R_Ring_Vector, int> &cipher, FHE_Public_Key_Type *pk, int p = 2, FHE_Secret_Key_Type *sk = NULL) :
+ FHE_Cipher_Text(const Pair<R_Ring_Vector, int> &cipher, FHE_Public_Key_Type *pk, ZZ p = ZZ(INIT_VAL, 2), FHE_Secret_Key_Type *sk = NULL) :
   my_cipher(Pair<R_Ring_Vector, int>(R_Ring_Vector(cipher.first), cipher.second)), my_pk(pk), my_p(p), my_sk(sk) {}
  FHE_Cipher_Text(const FHE_Cipher_Text &c) : my_cipher(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second), my_pk(c.my_pk), my_p(c.my_p), my_sk(c.my_sk) {}
- FHE_Cipher_Text() : my_cipher(R_Ring_Vector(), 0), my_pk(NULL), my_p(0), my_sk(NULL) {}
+ FHE_Cipher_Text() : my_cipher(R_Ring_Vector(), 0), my_pk(NULL), my_sk(NULL) {
+    my_p = ZZ::zero();
+  }
 
  FHE_Cipher_Text& operator =(const FHE_Cipher_Text &c) {
     my_cipher = Pair<R_Ring_Vector, int>(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second);
@@ -186,47 +188,61 @@ class FHE {
 	noise_UB = -potential_LB;
       }
     }
-    std::cout << "Theoretical noise bound = [" << noise_LB << ", " << noise_UB << "]" << std::endl;
+    //    std::cout << "Theoretical noise bound = [" << noise_LB << ", " << noise_UB << "]" << std::endl;
     if (noise_LB > noise_UB || noise_UB <= 1) {
       return ZZ(INIT_VAL, -1);
     }
-    return noise_LB + 1 > 1 ? noise_LB + 1 : ZZ(INIT_VAL, 2); // trying to make noise as small as possible
+    return noise_UB;
   }
 
   GLWE E;
   int my_L;
  public:
   void Print_Possible_Parameters(int L, GLWE_Type type, ZZ modul) {
-    /*
     // inifinite cycle inside: interrupt manually
     bool found_noise_bound = false;
-    ZZ x, y, q0, mu, q0_l, mu_l;
-    q0_l = NumBits(modul) + 1;
+    int x, y, q0, mu, q0_l, mu_l;
+    ZZ max_noise = ZZ::zero();
+    q0_l = NumBits(modul) * 2;
     mu_l = 3;
+    std::cout << "q0_l = " << q0_l << std::endl;
     
     for (y = 0; ; y++) {
       for (x = 0; x <= y; x++) {
 	mu = x + mu_l;
 	q0 = y - x + q0_l;
+	//	std::cout << "(" << q0 << ", " << mu << ")" << std::endl;
 
 	std::vector<GLWE_Params> try_params(L + 1);
+	bool err_setup = false;
 	for (int i = 0; i <= L; i++) {
-	  ZZ modul_size;
+	  int modul_size;
 	  modul_size = q0 + i * mu;
 	  try {
 	    try_params[i] = E.Setup(100, modul_size, type, modul); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
 	  } catch (bool b) {
-	    std::cout << "Exception caught" << std::endl;
-	    continue;
+	    //  std::cout << "Exception caught" << std::endl;
+	    err_setup = true;
+	    break;
 	  }
 	}
 
-	if (Choose_Noise_Bound(modul, try_params) > 0) {
-	  found_noise_bound = true;
-	  std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl << std::endl;
+	if (err_setup) {
+	  continue;
+	}
+	ZZ noise_bound;
+
+	if ((noise_bound = Choose_Noise_Bound(modul, try_params)) > 0) {
+	  if (noise_bound > max_noise) {
+	    found_noise_bound = true;
+	    std::cout << "(x, y) = (" << x << ", " << y << ")" << std::endl;
+	    std::cout << "Theoretical upper noise bound = [" <<  noise_bound << "]" << std::endl;
+	    std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl << std::endl;
+	    max_noise = noise_bound;
+	  }
 	}
       }
-      }*/
+      }
   }
 
   /**
@@ -237,118 +253,28 @@ class FHE {
    * @param p                   module for message representation (should be coprime with all the modules in the ladder)
    * @return			set of parameters for each level of the circuit
    **/
-  FHE_Params Setup(int lambda, int L, GLWE_Type b, int p = 2) {
+  FHE_Params Setup(int lambda, int L, GLWE_Type b, ZZ p = ZZ(INIT_VAL, 2)) {
     my_L = L;
     // initial modul length
-    int q_size = 5;
     int d = E.Choose_d(lambda, 0, b);
     int n = E.Choose_n(lambda, 0, b);
-    int mu = ceil(4 * sqrt((double)d));
-    
-    while (q_size < 8 * sizeof(ZZ) && ((1 << q_size) - 2) / q_size < 2 * p * d * (2 * n + 1)) {
-      q_size++;
-    }
-    q_size += 2;
-    //    q_size += 4;
-    mu += 9;
-    q_size = 10;
-    mu = 12;
 
-    /*** Choosing modules step ***/
-    /*
-    bool found_noise_bound = false;
-    for (int q0 = 5; q0 < 60; q0++) {
-      //      std::cout << "q0 = " << q0 << std::endl;
-      for (int mu = 3; L * mu + q0 < 61 && mu < q0; mu++) {
-
-	std::vector<GLWE_Params> try_params(L + 1);
-	for (int i = 0; i <= L; i++) {
-	  int modul_size = q_size + i * mu;
-	  try {
-	    try_params[i] = E.Setup(lambda, modul_size, b, p); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
-	  } catch (bool b) {
-	    std::cout << "Exception caught" << std::endl;
-	    continue;
-	  }
-	}
-
-	if (Choose_Noise_Bound(ZZ(INIT_VAL, p), try_params) > 0) {
-	  found_noise_bound = true;
-	  std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl;
-	}
-      }
-    }
-    if (!found_noise_bound) {
-      std::cout << "Noise bound not found" << std::endl;
-      std::cout << "Message modul = " << p << std::endl;
-      assert(false);
-    }*/
-    q_size = 23;
-    mu = 16;
-    int B = 5;
-    /*
-    //    mu = 9;
-    int mu_low_bound = mu;
-    while ((q_size + (L - 1) * mu) * 2 >= sizeof(ZZ) * 8 - 1 && mu >= mu_low_bound) {
-      mu--;
-      std::cout << "!";
-    }
-    */
+    int q_size = 20;
+    int mu = 26;
+    int B = 120; // 68 given
     
     std::vector<GLWE_Params> params(L + 1);
     for (int i = 0; i <= L; i++) {
       int modul_size = q_size + i * mu;
-      //      if (modul_size * 2 >= sizeof(ZZ) * 8 - 1) {
-      //	std::cout << "ALARM: moduls_size = " << modul_size << " > " << (sizeof(ZZ) * 8 - 1) / 2 << std::endl;
-      //	assert(modul_size * 2 < sizeof(ZZ) * 8 - 1); // to make addition, we need module twice smaller
-      //      }
       params[i] = E.Setup(lambda, modul_size, b, p); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
     }
-    /*
-    ZZ min_fraq = ceil(params[L].q / (double)params[L - 1].q);
-    for (int i = L - 1; i >= 1; i--) {
-      if (ceil(params[i].q / (double)params[i - 1].q) < min_fraq) {
-	min_fraq = ceil(params[i].q / (double)params[i - 1].q);
-      }
-    }
-    ZZ B = 1 + p * params[L].d * params[L].N * params[L].B;
-    ZZ B_upper_bound = min_fraq / 2 / sqrt(1.0 * d);
-    ZZ B_lower_bound = 2 * (sqrt(1.0 * d) * ((params[L].n * (params[L].n + 1)) / 2) * ceil(log2(params[L].q)) * (params[L].d + 2 * sqrt(1.0 * params[L].d) * params[L].B));
-    ZZ Bx = 2;
-    if (B < B_lower_bound) {
-      std::cout << "Adjusting noise " << std::endl;
-      std::cout << "params[L].d = " << params[L].d << ", params[L].N = " << params[L].N << ", params[L].B = " << params[L].B << std::endl;
-      while (B < B_lower_bound && Bx < params[0].q) {
-	std::cout << "B = " << B << " not in [" << B_lower_bound << ", " << B_upper_bound << "], Bx = " << Bx << std::endl;
-	B_lower_bound = 2 * (sqrt(1.0 * d) * ((params[L].n * (params[L].n + 1)) / 2) * ceil(log2(params[L].q)) * (params[L].d + 2 * sqrt(1.0 * params[L].d) * Bx));
-	B = 1 + p * params[L].d * params[L].N * Bx;
-	if (B_lower_bound < B_upper_bound && B < B_upper_bound && B > B_lower_bound) {
-	  break;
-	}
-	if (B_lower_bound > B_upper_bound) {
-	  break;
-	}
-	Bx++;
-      }
-    }
-    
-    if (B > B_upper_bound || B < B_lower_bound) {
-      std::cout << "B = " << B << " not int [" << B_lower_bound << ", " << B_upper_bound << "]" << std::endl;
-      std::cout << "min_fraq = " << min_fraq << std::endl;
-      std::cout << "n = " << params[L].n << ", log(q) = " << ceil(log2(params[L].q)) << ", d = " << params[L].d << ", B = " << params[0].B << std::endl;
-      exit(1);
-    }
-    //    int B = params[0].q - 2);
-    */
 			     
     for (int i = 0; i < L; i++) {
       params[i].d = params[L].d;
-      // params[i].noise = params[L].noise;
-      params[L - i].B = B;//params[0].B;
+      params[L - i].B = B;
     }
     // print noise bounds parameters and assert if the interval is empty
-    Choose_Noise_Bound(ZZ(INIT_VAL, p), params);
-    // std::cout << "B = " << params[0].B << std::endl;
+    // Choose_Noise_Bound(ZZ(INIT_VAL, p), params);
     return params;
   }
   
