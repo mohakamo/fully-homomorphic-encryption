@@ -215,7 +215,7 @@ public:
     return result;
   }
 
-  bool operator ==(const R_Ring_Number &r) {
+  bool operator ==(const R_Ring_Number &r) const {
     if (d != r.d) {
       return false;
     }
@@ -227,7 +227,7 @@ public:
     return true;
   }
 
-  bool operator !=(const R_Ring_Number &r) {
+  bool operator !=(const R_Ring_Number &r) const {
     return !((*this) == r);
   }
   

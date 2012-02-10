@@ -516,8 +516,8 @@ private:
 	}
 	R_Ring_Vector tensored_c1_old = tensored_c1.first;
 	
-	c.Refresh(tensored_c1, &sk_pk.second);
-	FHE_Cipher_Text tc(tensored_c1, &sk_pk.second);
+	FHE_Cipher_Text tc(tensored_c1, &sk_pk.second, ZZ(INIT_VAL, modul), ZZ::zero());
+	c.Refresh(tc);
 	R_Ring_Number decoded_message = tc.Decrypt(params, sk_pk.first);
 	if (message.Get_Clamped(ZZ(INIT_VAL, modul)) != decoded_message) {
 	  std::cout << "modul = " << modul << std::endl;
@@ -654,9 +654,10 @@ private:
       for (int j = 0; j < dimension; j++) {
 	cv[j] = c.Get_Cipher().first[j];
       }
-      FHE_Cipher_Text new_cipher(Pair<R_Ring_Vector, int>(cv, c.Get_Cipher().second), &sk_pk.second, ZZ(INIT_VAL, modul));
+      FHE_Cipher_Text new_cipher(Pair<R_Ring_Vector, int>(cv, c.Get_Cipher().second), &sk_pk.second, ZZ(INIT_VAL, modul), ZZ::zero());
       new_cipher.Add_Secret_Key_Info(&sk_pk.first);
-      new_cipher.Refresh(new_cipher.Get_Cipher(), &sk_pk.second, &sk_pk.first);
+      new_cipher.Refresh(new_cipher);
+
       R_Ring_Number m = new_cipher.Decrypt(params, sk_pk.first);
       if (m != message) {
 	std::cout << "Encryption after first refresh failed" << std::endl;
@@ -745,8 +746,8 @@ private:
 	  for (int j = 0; j < dimension; j++) {
 	    c3[j] = c[2].Get_Cipher().first[j];
 	  }
-	  FHE_Cipher_Text res_c3(Pair<R_Ring_Vector, int>(c3, c[2].Get_Cipher().second), &sk_pk.second, ZZ(INIT_VAL, modul));
-	  res_c3.Refresh(res_c3.Get_Cipher(), &sk_pk.second);
+	  FHE_Cipher_Text res_c3(Pair<R_Ring_Vector, int>(c3, c[2].Get_Cipher().second), &sk_pk.second, ZZ(INIT_VAL, modul), ZZ::zero());
+	  res_c3.Refresh(res_c3);
 	  std::cout << "Decr(Refresh(Encr(m3))) = "; res_c3.Decrypt(params, sk_pk.first).print(); std::cout << std::endl;
 	  FHE_Cipher_Text res_c4 = res_c * res_c3;
 	  assert(res_c4.Decrypt(params, sk_pk.first) == res_m_decr2);
@@ -877,7 +878,7 @@ private:
 	FHE_Cipher_Text c3_duble_updates(c3.Get_Cipher(), &sk_pk.second, modul);
 	assert(c3.Decrypt(params, sk_pk.first) == message4);
 	}*/
-      c2.Update_To_Same_Level(c2.Get_Cipher(), c1.Get_Cipher());
+      c2.Update_To_Same_Level(c2, c1);
       std::cout << "attempt #" << ii << std::endl;
       std::cout << "modul " << modul << std::endl;
 
@@ -1223,6 +1224,54 @@ private:
     return true;
   }
 
+  bool test_LSS(void) {
+    std::cout << "test_LSS ";
+
+    for (int d = 1; d < 4; d++) {
+      for (int s = 0; s < 30; s++) {
+    
+    int noof_vectors = 2;
+    int message_modul_bound = 10;
+    ZZ modul;
+    modul = 2 * noof_vectors * noof_vectors * message_modul_bound * message_modul_bound * message_modul_bound  + 1;
+    while (ProbPrime(modul)) {
+      modul++;
+    }
+
+    std::vector<ZZ *> array_m_x(noof_vectors), array_m_y(noof_vectors);
+    for (int j = 0; j < noof_vectors; j++) {
+      array_m_x[j] = new ZZ [d];
+      array_m_x[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), ZZ(INIT_VAL, message_modul_bound));
+      array_m_y[j] = new ZZ [d];
+      array_m_y[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), ZZ(INIT_VAL, message_modul_bound));
+    }
+    std::vector<R_Ring_Number> messages_x, messages_y;
+    for (int j = 0; j < noof_vectors; j++) {
+      messages_x.push_back(R_Ring_Number(modul, d, array_m_x[j]));
+      messages_y.push_back(R_Ring_Number(modul, d, array_m_y[j]));
+    }
+
+    for (int j = 0; j < noof_vectors; j++) {
+      delete [] array_m_x[j];
+      delete [] array_m_y[j];
+    }
+
+    R_Ring_Number den;
+      
+    Pair<R_Ring_Number, R_Ring_Number> res = Compute_LSS<R_Ring_Number>(messages_x, messages_y, &den);
+    if (res.first * messages_x[0] + res.second != messages_y[0] * den ||
+	res.first * messages_x[1] + res.second != messages_y[1] * den) {
+      std::cout << "d = " << d << ", s = " << s << ", message modul = " << modul << std::endl;
+      std::cout << "(x0, y0) = ("; messages_x[0].print(); std::cout << ", "; messages_y[0].print(); std::cout << ")" << std::endl;
+      std::cout << "(x1, y1) = ("; messages_x[1].print(); std::cout << ", "; messages_y[1].print(); std::cout << ")" << std::endl;
+      std::cout << "(a, b) = ("; res.first.print(); std::cout << ", "; res.second.print(); std::cout << ")" << std::endl;
+      FAIL();
+      return false;
+    }}}
+    PASS();
+    return true;
+  }
+
 public:
   void Run_Tests() {
     if (/*!test_Zero_Number() ||
@@ -1243,9 +1292,10 @@ public:
 	!test_Multiple_Refresh(LWE_Based) ||
 	!test_Multiple_Refresh(RLWE_Based) ||
 	!test_FHE_Two_Mult(LWE_Based) ||
-	!test_FHE_Two_Mult(RLWE_Based) || */
+	!test_FHE_Two_Mult(RLWE_Based) ||
 	!test_FHE_Operations() ||
-	!test_FHE_LSS()) {
+	!test_FHE_LSS() || */
+	!test_LSS()) {
       std::cout << "Overall tests FAILED" << std::endl;
     } else {
       std::cout << "Overall tests PASSED" << std::endl;
@@ -1260,6 +1310,7 @@ class Timing_LSS {
   FHE_Public_Key_Type pk;
   ZZ modul;
   int L;
+  GLWE_Type type;
 
   int my_max_dimension;
   int my_bound;
@@ -1275,31 +1326,46 @@ public:
    * @param max_dimension - maximum desired dimension
    * @param bound - bound on absolute value of vector's elements (required to choose module ladder)
    **/
-  void Setup(int max_dimension, int bound) {
+  void Setup(int max_dimension, int bound, bool justPrintParams = false) {
+    type = RLWE_Based;
     my_max_dimension = max_dimension;
     my_bound = bound;
-    GLWE_Type type = LWE_Based; // RLWE_Based
 
     // choosing message module
     ZZ zz_dimension = ZZ(INIT_VAL, max_dimension);
     ZZ zz_bound = ZZ(INIT_VAL, bound);
     ZZ lower_bound_on_modul;
     lower_bound_on_modul = 2 * zz_dimension * zz_dimension * zz_bound * zz_bound * zz_bound + 1;
+    std::cout << "lower_bound_on_modul = " << lower_bound_on_modul << std::endl;
+    std::cout << "upper_bound_on_modul = " << 2 * lower_bound_on_modul << std::endl;
     ZZ upper_bound_on_modul;
     upper_bound_on_modul = 2 * lower_bound_on_modul; // by Bertrand's postulate we should find a prime in this range, otherwise something is going wrong....
     modul = lower_bound_on_modul;
-    while (ProbPrime(modul) && modul < upper_bound_on_modul) {
+    while (!ProbPrime(modul) && modul < upper_bound_on_modul) {
       modul++;
     }
+    if (!ProbPrime(modul)) {
+      std::cout << "Modul not found" << std::endl;
+      exit(1);
+    }
     //std::cout << "Message modul chosen = " << modul << std::endl;
-    //fhe.Print_Possible_Parameters(L, type, modul);
-    //return;
-    params = fhe.Setup(3, L, type, modul);
+    if (justPrintParams) {
+      fhe.Print_Possible_Parameters(L, type, modul);
+      return;
+    }
+
+    FHE_Params temp_params = fhe.Setup(3, L, type, modul);
+    std::cout << "temp_params.size() = " << temp_params.size() << std::endl;
+    params = temp_params;
+    
     
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
     sk = sk_pk.first;
     pk = sk_pk.second;
+
+    std::cout << "params.size() = " << params.size() << std::endl;
   }
+
   /**
    * Run_LSS function runs LSS on randomly generated data with parameters of FHE scheme that are adjusted to 
    *  get better performance
@@ -1311,12 +1377,14 @@ public:
     clock_t start, total_start = clock();
     double time = 0;
 
+    std::cout << "params.size() = " << params.size() << std::endl;
+
     std::vector<ZZ *> array_m_x(dimension), array_m_y(dimension);
     for (int j = 0; j < dimension; j++) {
       array_m_x[j] = new ZZ [params[0].d];
-      array_m_x[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), modul);
+      array_m_x[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), ZZ(INIT_VAL, bound));
       array_m_y[j] = new ZZ [params[0].d];
-      array_m_y[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), modul);
+      array_m_y[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), ZZ(INIT_VAL, bound));
     }
     std::vector<R_Ring_Number> messages_x, messages_y;
     std::vector<FHE_Cipher_Text> c_x, c_y;
@@ -1325,8 +1393,10 @@ public:
       messages_x.push_back(R_Ring_Number(modul, params[0].d, array_m_x[j]));
       messages_y.push_back(R_Ring_Number(modul, params[0].d, array_m_y[j]));
       c_x.push_back(fhe.Encrypt(params, &pk, messages_x[j]));
+      assert(c_x[j].ThNoise != 0);
       c_x[c_x.size() - 1].Add_Secret_Key_Info(&sk);
       c_y.push_back(fhe.Encrypt(params, &pk, messages_y[j]));
+      assert(c_y[j].ThNoise != 0);
       c_y[c_y.size() - 1].Add_Secret_Key_Info(&sk);
     }
     time = (clock() - start) / (double)CLOCKS_PER_SEC;
@@ -1389,6 +1459,7 @@ int main (int argc, char * const argv[]) {
 
   //  Test tests;
   //  tests.Run_Tests();
+  //  return 0;
 
   // remainder on how negative reals are cast to integers
   /*  std::cout << "-1 % 2 == " << (-1) % 2 << std::endl;
@@ -1399,16 +1470,22 @@ int main (int argc, char * const argv[]) {
   std::cout << "(int)(3.5) == " << (int)(3.5) << std::endl; */
 
   Timing_LSS timingLSS;
-  const int max_dimension = 100;
-  const int elements_modul = 2;
-  timingLSS.Setup(max_dimension, elements_modul);
+  const int max_dimension = 10; // till (20, 14) for dimension = 3, modul = 10, noise bound not found
+  int elements_modul[] = {3, 5, 7, 9, 11, 13};
+  // change last parameter to false is want to run lss
+  //  return 0;
 
-  for (int dimension = 2; dimension < max_dimension; dimension++) {
-    std::cout << "dimension = " << dimension << std::endl;
-    timingLSS.Run_LSS(elements_modul, dimension);
-    std::cout << std::endl;
+  for (int dimension = 2; dimension <= max_dimension; dimension++) {
+    for (int modul_i = 0; modul_i < 6; modul_i++) {
+      int modul = elements_modul[modul_i];
+      timingLSS.Setup(dimension, modul, false);
+      std::cout << "dimension = " << dimension << ", modul = " << modul << std::endl;
+      timingLSS.Run_LSS(modul, dimension);
+      std::cout << std::endl;
+    }
   }
   
   return 0;	
 }
+
 

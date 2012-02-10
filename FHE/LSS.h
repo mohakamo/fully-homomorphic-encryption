@@ -20,7 +20,7 @@ void Sum_Up(std::vector<T> &x) {
 }
 
 template<class T>
-Pair<T, T> Compute_LSS(std::vector<T> xs, std::vector<T> ys) {
+Pair<T, T> Compute_LSS(std::vector<T> xs, std::vector<T> ys, T * den = NULL) {
   // TODO: need to add in a way to get logarithmic depth!!!!!
   int size = xs.size();
   assert(xs.size() == ys.size());
@@ -40,6 +40,12 @@ Pair<T, T> Compute_LSS(std::vector<T> xs, std::vector<T> ys) {
 
   T a, b;
   int t1, t2, t3;
+
+  if (den != NULL) {
+    T tmp_den1 = x_x[0] * ZZ(INIT_VAL, xs.size());
+    T tmp_den2 = sum_x[0] * sum_x[0];
+    (*den) = tmp_den1 - tmp_den2;
+  }
 
   if (typeid(T) == typeid(FHE_Cipher_Text)) {
     t2 = (reinterpret_cast<FHE_Cipher_Text *>(&sum_x[0]))->Get_Cipher().second;

@@ -7,6 +7,7 @@
 #include "R_Ring_Matrix.h"
 #include <math.h>
 #include "LOG.h"
+#include <map>
 
 /*** Params for GLWE_Encrption_Scheme ***/
 class GLWE_Params {
@@ -72,10 +73,25 @@ class GLWE {
     }*/
 
   static ZZ Choose_q(int mu, ZZ r) {
+    static std::map<int, ZZ> primes;
+    static ZZ my_r = r;
+
+    if (my_r != r) {
+      my_r = r;
+      primes.clear();
+    }
+
+    std::map<int, ZZ>::iterator found_value = primes.find(mu);
+    
+    if (found_value != primes.end()) {
+      return (*found_value).second;
+    }
+      
     ZZ n;
     n = (ZZ(INIT_VAL, 1) << mu) - 1;
     while (n > (ZZ(INIT_VAL, 1) << (mu - 1))) {
       if (ProbPrime(n) && n % r == 1) {
+	primes.insert(std::pair<int, ZZ>(mu, n));
 	return n;
       }
       n--;
@@ -83,6 +99,7 @@ class GLWE {
     //    std::cout << "mu = " << mu << std::endl;
     //    std::cout << "r = " << r << std::endl;
     // did not find modul that is equal to 1 mod r
+    std::cout << "Exception, between " << (ZZ(INIT_VAL, 1) << (mu - 1)) << " and " << (ZZ(INIT_VAL, 1) << mu) - 1 << " did not prime find number that = 1 mod " << r << std::endl;
     throw false;
     //    assert(false);
     return ZZ(INIT_VAL, -1);
@@ -93,7 +110,7 @@ class GLWE {
       return 1;
     }
     // TODO: to be implemented
-    return 2;
+    return 8;
   }
 
   static int Choose_n(int lambda, int mu, GLWE_Type b) {
@@ -101,7 +118,7 @@ class GLWE {
       return 1;
     }
     // TODO: to be implemented
-    return 2;
+    return 8;
   }
  private:
   static int Choose_N(int n, ZZ q) {

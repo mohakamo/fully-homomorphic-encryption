@@ -7,6 +7,7 @@
 
 #include "GLWE.h"
 #include "Pair.h"
+#include "time.h"
 
 typedef std::vector<R_Ring_Matrix> FHE_Public_Key_Type;
 typedef std::vector<R_Ring_Vector> FHE_Secret_Key_Type;
@@ -21,18 +22,20 @@ class FHE_Cipher_Text {
 
   R_Ring_Vector Switch_Key(R_Ring_Matrix A, R_Ring_Vector c1);
  public: // for testing purposes
+  ZZ ThNoise;
   static R_Ring_Vector Scale(R_Ring_Vector &x, ZZ q, ZZ p, ZZ r);
-  void Update_To_Same_Level(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2);
+  void Update_To_Same_Level(FHE_Cipher_Text &c1, FHE_Cipher_Text &c2);
  private:
-  Pair<R_Ring_Vector, int> Add(Pair<R_Ring_Vector, int> c1, Pair<R_Ring_Vector, int> c2, bool sign = true, FHE_Secret_Key_Type *sk = NULL);
-  Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> c1, Pair<R_Ring_Vector, int> c2, FHE_Secret_Key_Type *sk = NULL);
-  Pair<R_Ring_Vector, int> Mult(Pair<R_Ring_Vector, int> c1, ZZ n, FHE_Secret_Key_Type *sk = NULL);
+  FHE_Cipher_Text Add(FHE_Cipher_Text c1, FHE_Cipher_Text c2, bool sign = true);
+  FHE_Cipher_Text Mult(FHE_Cipher_Text c1, FHE_Cipher_Text c2);
+  FHE_Cipher_Text Mult(FHE_Cipher_Text c1, ZZ n);
  public:
- FHE_Cipher_Text(const Pair<R_Ring_Vector, int> &cipher, FHE_Public_Key_Type *pk, ZZ p = ZZ(INIT_VAL, 2), FHE_Secret_Key_Type *sk = NULL) :
-  my_cipher(Pair<R_Ring_Vector, int>(R_Ring_Vector(cipher.first), cipher.second)), my_pk(pk), my_p(p), my_sk(sk) {}
- FHE_Cipher_Text(const FHE_Cipher_Text &c) : my_cipher(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second), my_pk(c.my_pk), my_p(c.my_p), my_sk(c.my_sk) {}
+ FHE_Cipher_Text(const Pair<R_Ring_Vector, int> &cipher, FHE_Public_Key_Type *pk, ZZ p, ZZ noise, FHE_Secret_Key_Type *sk = NULL) :
+  my_cipher(Pair<R_Ring_Vector, int>(R_Ring_Vector(cipher.first), cipher.second)), my_pk(pk), my_p(p), my_sk(sk), ThNoise(noise) {}
+ FHE_Cipher_Text(const FHE_Cipher_Text &c) : my_cipher(R_Ring_Vector(c.my_cipher.first), c.my_cipher.second), my_pk(c.my_pk), my_p(c.my_p), my_sk(c.my_sk), ThNoise(c.ThNoise) {}
  FHE_Cipher_Text() : my_cipher(R_Ring_Vector(), 0), my_pk(NULL), my_sk(NULL) {
     my_p = ZZ::zero();
+    ThNoise = ZZ::zero();
   }
 
  FHE_Cipher_Text& operator =(const FHE_Cipher_Text &c) {
@@ -40,17 +43,22 @@ class FHE_Cipher_Text {
     my_pk = c.my_pk;
     my_p = c.my_p;
     my_sk = c.my_sk;
+    ThNoise = c.ThNoise;
     return *this;
  }
   
   FHE_Cipher_Text operator +(FHE_Cipher_Text &c) {
     assert(my_pk == c.my_pk); // addresses comparison
-    return FHE_Cipher_Text(Add(my_cipher, c.my_cipher, true, my_sk), my_pk, my_p, my_sk);
+    assert(ThNoise != 0);
+    assert(c.ThNoise != 0);
+    return Add(*this, c, true);
   }
 
   FHE_Cipher_Text operator -(FHE_Cipher_Text &c) {
     assert(my_pk == c.my_pk);
-    return FHE_Cipher_Text(Add(my_cipher, c.my_cipher, false, my_sk), my_pk, my_p, my_sk);
+    assert(ThNoise != 0);
+    assert(c.ThNoise != 0);
+    return Add(*this, c, false);
   }
   
   FHE_Cipher_Text operator -() { // assuming the field operations keep numbers in range [-(q - 1) / 2; (q - 1) / 2]
@@ -62,12 +70,15 @@ class FHE_Cipher_Text {
   }
 
   FHE_Cipher_Text operator *(ZZ n) {
-    return FHE_Cipher_Text(Mult(my_cipher, n, my_sk), my_pk, my_p, my_sk);
+    assert(ThNoise != 0);
+    return Mult(*this, n);
   }
   
   FHE_Cipher_Text operator *(FHE_Cipher_Text &c) {
     assert(my_pk == c.my_pk); // addresses, comparison
-    return FHE_Cipher_Text(Mult(my_cipher, c.my_cipher, my_sk), my_pk, my_p, my_sk);
+    assert(ThNoise != 0);
+    assert(c.ThNoise != 0);
+    return Mult(*this, c);
   }
 
   Pair<R_Ring_Vector, int> Copy_Cipher(void) const {
@@ -80,7 +91,7 @@ class FHE_Cipher_Text {
     return GLWE::Decrypt(params[j], sk[j], my_cipher.first);
   }
 
-  void Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *pk, FHE_Secret_Key_Type *sk = NULL);
+  void Refresh(FHE_Cipher_Text &c);
   void print(void) {
     std::cout << "(";
     my_cipher.first.print();
@@ -154,75 +165,96 @@ class FHE {
     return 6;
   }
 
-  ZZ Choose_Noise_Bound(ZZ p, FHE_Params &params) { // suppose that all n are the same (for LWE scheme)
-    ZZ max_fraq_num, max_fraq_den;
-    max_fraq_num = max_fraq_den = -1;
+  ZZ Choose_Noise_Bound(ZZ p, FHE_Params &params, bool printInfo = false) { // suppose that all n are the same (for LWE scheme)
     int d = params[params.size() - 1].d;
     int field_expansion = sqrt(d);
     int L = params.size() - 1;
     int n = params[L].n;
-    for (int i = 1; i < params.size(); i++) {
-      ZZ fraq_num, fraq_den;
-      fraq_num = params[i].q;
-      fraq_den = params[i - 1].q;
-      if (max_fraq_num == -1 || fraq_num * max_fraq_den > max_fraq_num * fraq_den) {
-	max_fraq_num = fraq_num;
-	max_fraq_den = fraq_den;
-      }
+    ZZ noise_UB_num = params[1].q;
+    ZZ noise_UB_den = (params[0].q * 2 * field_expansion * p * d * (2 * params[L].n + 1) * NumBits(params[L].q)); // noise upper bound
+    if (printInfo) {
+      std::cout << field_expansion  << ", " << p << ", " << d << ", " << (2 * params[L].n + 1) << ", " << NumBits(params[L].q) << ", L = " << L << std::endl;
+      //      std::cout << "noise_UB = " << noise_UB << std::endl;
     }
-    //    assert(max_fraq > 0);
-    if (max_fraq_num <= 0) {return ZZ(INIT_VAL, -1);}
-    ZZ noise_UB = (max_fraq_num / max_fraq_den / 2 / field_expansion - 1) / p / d / (2 * params[L].n + 1) / NumBits(params[L].q); // noise upper bound
-    if (noise_UB <= 1) {return ZZ(INIT_VAL, -1);}
-    ZZ noise_LB_temp;
-    noise_LB_temp = (2 * d * (int)field_expansion * (n + 1) * n / 2 * NumBits(params[L].q) - 1) / d; // noise lower bound without denominator
-    ZZ noise_LB = ZZ::zero(); // noise lower bound
+    if (noise_UB_num <= noise_UB_den) {
+      //      std::cout << "noise_UB = " << noise_UB << std::endl;
+      return ZZ(INIT_VAL, -1);
+    }
+    ZZ noise_LB_num = ZZ::zero(), noise_LB_den = ZZ(INIT_VAL, 1); // noise lower bound
 
     // computing denominators and trying to find lower bound
+    ZZ a = d * p * (2 * n + 1) * NumBits(params[L].q);
+    ZZ b = ZZ(INIT_VAL, 2 * d * (n + 1) * n);
+    ZZ c = ZZ(INIT_VAL, d * (int)field_expansion * (n + 1) * n);
     for (int j = 1; j < params.size(); j++) {
-      ZZ noise_LB_den = p * (2 * params[L].n + 1) * NumBits(params[L].q) - 4 * (params[L].n + 1) * params[L].n / 2 * NumBits(params[j].q) * NumBits(params[j - 1].q);
-      ZZ potential_LB = noise_LB_temp / noise_LB_den;
-      if (noise_LB_den > 0 && potential_LB > noise_LB) {
-	noise_LB = potential_LB;
-      } else if (noise_LB_den < 0 && -potential_LB < noise_UB) {
-	noise_UB = -potential_LB;
+      ZZ noise_LB_num_tmp = c * NumBits(params[j].q) - 1; // noise lower bound without denominator
+      ZZ noise_LB_den_tmp = a - b * NumBits(params[j].q) * NumBits(params[j - 1].q);
+      if (noise_LB_den_tmp == 0) {
+	continue;
+      }
+      //      ZZ potential_LB = noise_LB_temp / noise_LB_den;
+      if (noise_LB_den_tmp > 0 && noise_LB_num_tmp * noise_LB_den > noise_LB_num * noise_LB_den_tmp) {
+	noise_LB_num = noise_LB_num_tmp;
+	noise_LB_den = noise_LB_den_tmp;
+	//	if (printInfo) 	std::cout << "noise_LB = " << noise_LB << std::endl;
+      } else if (noise_LB_den_tmp < 0 && -noise_LB_num_tmp * noise_UB_den < noise_UB_num * noise_LB_den_tmp) {
+	noise_UB_num = noise_LB_num_tmp;
+	noise_UB_den = -noise_LB_den_tmp;
+
+	//	if (printInfo) {
+	//	  std::cout << "noise_UB = " << noise_UB << std::endl;
+	//	  std::cout << "noise_LB_temp = " << noise_LB_temp << std::endl;
+	//	  std::cout << "noise_LB_den = " << noise_LB_den << std::endl;
+	//	  std::cout << "p = " << p << std::endl;
+	//	}
+      }
+      if (noise_LB_num * noise_UB_den > noise_UB_num * noise_LB_den || noise_UB_num <= noise_UB_den) {
+	return ZZ(INIT_VAL, -1);
       }
     }
     //    std::cout << "Theoretical noise bound = [" << noise_LB << ", " << noise_UB << "]" << std::endl;
-    if (noise_LB > noise_UB || noise_UB <= 1) {
-      return ZZ(INIT_VAL, -1);
-    }
-    return noise_UB;
+    return noise_UB_num / noise_UB_den;
   }
 
   GLWE E;
   int my_L;
  public:
-  void Print_Possible_Parameters(int L, GLWE_Type type, ZZ modul) {
+  void Print_Possible_Parameters(int L, GLWE_Type type, ZZ modul, bool justPrint = true, int *r_q0 = NULL, int *r_mu = NULL, ZZ *r_noise = NULL) {
+    std::vector<int> brokenModules;
     // inifinite cycle inside: interrupt manually
     bool found_noise_bound = false;
     int x, y, q0, mu, q0_l, mu_l;
+    static int x0 = 0, y0 = 0;
     ZZ max_noise = ZZ::zero();
-    q0_l = NumBits(modul) * 2;
-    mu_l = 3;
-    std::cout << "q0_l = " << q0_l << std::endl;
+    q0_l = NumBits(modul) + 1;// * 2; // Why do I did |* 2 here???
+    mu_l = NumBits(modul);
+    if (justPrint) std::cout << "q0_l = " << q0_l << std::endl;
+    //    x0 = 22, y0 = 22;
     
-    for (y = 0; ; y++) {
-      for (x = 0; x <= y; x++) {
+    for (y = y0; ; y++) {
+      //      std::cout << y << std::endl;
+      for (y == y0 ? x = x0 : x = 0; x <= y; x++) {
+	//	std::cout << "  " << x << std::endl;
 	mu = x + mu_l;
 	q0 = y - x + q0_l;
-	//	std::cout << "(" << q0 << ", " << mu << ")" << std::endl;
+	//	for (int nd = 2; nd < (q0 + L * mu - 1000) * 100; nd++)
+	//	std::cout << "(" << q0 << ", " << mu << "), (" << x << ", " << y << ")" << std::endl;
 
 	std::vector<GLWE_Params> try_params(L + 1);
 	bool err_setup = false;
 	for (int i = 0; i <= L; i++) {
 	  int modul_size;
 	  modul_size = q0 + i * mu;
+	  if (std::find(brokenModules.begin(), brokenModules.end(), modul_size) != brokenModules.end()) {
+	    err_setup = true;
+	    break;
+	  }
 	  try {
 	    try_params[i] = E.Setup(100, modul_size, type, modul); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
 	  } catch (bool b) {
-	    //  std::cout << "Exception caught" << std::endl;
+	    //   std::cout << "Exception caught" << std::endl;
 	    err_setup = true;
+	    brokenModules.push_back(modul_size);
 	    break;
 	  }
 	}
@@ -231,14 +263,28 @@ class FHE {
 	  continue;
 	}
 	ZZ noise_bound;
+	// std::cout << "  mu = " << mu << ", q0 = " << q0 << std::endl;
+	noise_bound = Choose_Noise_Bound(modul, try_params);
+	//	std::cout << "Noise bound = " << noise_bound << std::endl;
 
-	if ((noise_bound = Choose_Noise_Bound(modul, try_params)) > 0) {
+	if (noise_bound > 0) {
 	  if (noise_bound > max_noise) {
 	    found_noise_bound = true;
-	    std::cout << "(x, y) = (" << x << ", " << y << ")" << std::endl;
-	    std::cout << "Theoretical upper noise bound = [" <<  noise_bound << "]" << std::endl;
-	    std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl << std::endl;
+	    //	    if (justPrint) {
+	      std::cout << "(x, y) = (" << x << ", " << y << ")" << std::endl;
+	      std::cout << "Theoretical upper noise bound = [" <<  noise_bound << "]" << std::endl;
+	      std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl << std::endl;
+	      //	    }
 	    max_noise = noise_bound;
+	    if (!justPrint && noise_bound > 1024) {
+	      (*r_noise) = noise_bound;
+	      (*r_q0) = q0;
+	      (*r_mu) = mu;
+	      x0 = x;
+	      y0 = y;
+	      return;
+	    }
+	    //	    exit(1);
 	  }
 	}
       }
@@ -259,9 +305,15 @@ class FHE {
     int d = E.Choose_d(lambda, 0, b);
     int n = E.Choose_n(lambda, 0, b);
 
-    int q_size = 20;
-    int mu = 26;
-    int B = 120; // 68 given
+    int q_size = 15;
+    int mu = 32;
+    ZZ B = ZZ(INIT_VAL, 1100); // 1182 given
+    clock_t start = clock();
+    Print_Possible_Parameters(L, b, p, false, &q_size, &mu, &B);
+    std::cout << "Time for finding parameters = " << (clock() - start) / (double)CLOCKS_PER_SEC << std::endl;
+    start = clock();
+
+    std::cout << "q0 = " << q_size << ", mu = " << mu << ", B = " << B << std::endl;
     
     std::vector<GLWE_Params> params(L + 1);
     for (int i = 0; i <= L; i++) {
@@ -275,6 +327,7 @@ class FHE {
     }
     // print noise bounds parameters and assert if the interval is empty
     // Choose_Noise_Bound(ZZ(INIT_VAL, p), params);
+
     return params;
   }
   
@@ -283,6 +336,7 @@ class FHE {
    * @return Pair<FHE_Secret_Key, FHE_Public_Key>
    */
   Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> Key_Gen(std::vector<GLWE_Params> params) {
+    clock_t start = clock();
     std::vector<R_Ring_Vector> sk(my_L + 1); // s_0, ..., s_L
     std::vector<R_Ring_Matrix> pk(my_L + 1 + my_L); // first L + 1 slots are devoted to A_0, ..., A_L and next L slots are devoted to tau_(1 -> 0), ..., tau_(L -> L - 1)
     for (int i = my_L; i >= 0; i--) {
@@ -332,6 +386,7 @@ class FHE {
 	pk[my_L + i + 1] = tau_i;
       }
     }
+    std::cout << "Time for key generation = " << (clock() - start) / (double)CLOCKS_PER_SEC << std::endl;
     return Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type>(sk, pk);
   }
   
@@ -342,7 +397,10 @@ class FHE {
     }
   */
   FHE_Cipher_Text Encrypt(FHE_Params params, FHE_Public_Key_Type *pk, R_Ring_Number m) {
-    return FHE_Cipher_Text(Pair<R_Ring_Vector, int> (E.Encrypt(params[my_L], (*pk)[my_L], m), my_L), pk, params[0].p);
+    ZZ ThNoise;
+    ThNoise = 1 + params[my_L].p * params[my_L].d * sqrt(params[my_L].d) * params[my_L].N * params[my_L].B;
+    std::cout << "Initial noise = " << ThNoise << std::endl;
+    return FHE_Cipher_Text(Pair<R_Ring_Vector, int> (E.Encrypt(params[my_L], (*pk)[my_L], m), my_L), pk, params[0].p, ThNoise);
   }
   
   friend class FHE_Cipher_Text;

@@ -20,10 +20,23 @@ R_Ring_Vector FHE_Cipher_Text::Scale(R_Ring_Vector &x, ZZ q, ZZ p, ZZ r) {
 // A_j_j_1 - matrix that transforms key from level j to level j - 1
 // q_j_1 < q_j
 // Moves c from level c.second to level c.second - 1
-void FHE_Cipher_Text::Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *pk, FHE_Secret_Key_Type *sk) {
+void FHE_Cipher_Text::Refresh(FHE_Cipher_Text &c_cipher) {
+  Pair<R_Ring_Vector, int> &c = c_cipher.my_cipher;
+  FHE_Public_Key_Type *pk = c_cipher.my_pk;
+  FHE_Secret_Key_Type *sk = c_cipher.my_sk;
+
   assert(c.second - 1 >= 0);
   int L = ((*my_pk).size() - 1) / 2;
   R_Ring_Vector c1 = FHE::Powersof2(c.first, (*pk)[c.second].Get_q());
+
+  ZZ ThNoise = c_cipher.ThNoise;
+  // noise check
+  // check upper bound is not exceeded
+  ZZ required_upper_bound = (*pk)[c.second].Get_q() / 2 - (*pk)[c.second - 1].Get_q() * c.first.Get_d() * (int)(c.first.Get_Field_Expansion() + 1) * (((*pk)[c.second].Get_Noof_Columns() - 1) * (*pk)[c.second].Get_Noof_Columns()) / 2 * NumBits(c.first.Get_q()) / (*pk)[c.second].Get_q();
+  assert(ThNoise < required_upper_bound);
+  // calculate expected amount of noise after Scaling
+  ThNoise = (*pk)[c.second - 1].Get_q() * ThNoise / (*pk)[c.second].Get_q() + c.first.Get_d() * (int)(c.first.Get_Field_Expansion() + 1) * (((*pk)[c.second].Get_Noof_Columns() - 1) * (*pk)[c.second].Get_Noof_Columns()) / 2 * NumBits(c.first.Get_q());
+  assert(ThNoise * 2 < c.first.Get_q());
 
   /**** debug code ****/
   // noise check
@@ -52,6 +65,9 @@ void FHE_Cipher_Text::Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *
   
   assert(c2.Get_q() == (*pk)[L + c.second].Get_q());
   R_Ring_Vector c3 = Switch_Key((*pk)[L + c.second], c2);
+
+  ThNoise = ThNoise + (int)(2 * sqrt((double)c.first.Get_d()) * 2) * c.first.Get_Field_Expansion() * (((*pk)[c.second].Get_Noof_Columns() - 1) * (*pk)[c.second].Get_Noof_Columns()) / 2 * NumBits(c.first.Get_q()) * NumBits(c.first.Get_q());
+  assert(ThNoise * 2 < c2.Get_q());
 
   /**** debug code ****/
   // noise check
@@ -86,22 +102,12 @@ void FHE_Cipher_Text::Refresh(Pair<R_Ring_Vector, int> &c, FHE_Public_Key_Type *
     std::cout << std::endl;
     }*/
 
-  c = Pair<R_Ring_Vector, int>(c3, c.second - 1);
+c_cipher.my_cipher = Pair<R_Ring_Vector, int>(c3, c.second - 1); // updating cipher
+c_cipher.ThNoise = ThNoise; // updating theoretical noise bound
 }
   
-/*
-void FHE_Cipher_Text::Refresh(Pair<R_Ring_Vector, int> &c, R_Ring_Matrix A_j_j_1, int q_j, int q_j_1) {
-  assert(c.first.Get_q() == q_j);
-  R_Ring_Vector c1 = FHE::Powersof2(c.first, q_j);
-  R_Ring_Vector c2 = Switch_Key(A_j_j_1, c2);
-
-  assert(c2.Get_q() == c1.Get_q());
-  R_Ring_Vector c3 = Scale(c1, q_j, q_j_1, 2);
-  assert(c3.Get_q() == q_j_1);
-  c = Pair<R_Ring_Vector, int>(c3, c.second - 1);
-  } */
-
-void FHE_Cipher_Text::Update_To_Same_Level(Pair<R_Ring_Vector, int> &c1, Pair<R_Ring_Vector, int> &c2) {
+void FHE_Cipher_Text::Update_To_Same_Level(FHE_Cipher_Text &c1_cipher, FHE_Cipher_Text &c2_cipher) {
+  Pair<R_Ring_Vector, int> &c1 = c1_cipher.my_cipher, &c2 = c2_cipher.my_cipher;
   int L = ((*my_pk).size() - 1) / 2;
   if (c1.second != c2.second) {
     if (c1.second < c2.second) {
@@ -115,12 +121,10 @@ void FHE_Cipher_Text::Update_To_Same_Level(Pair<R_Ring_Vector, int> &c1, Pair<R_
 	}
 	Pair<R_Ring_Vector, int> result(res_c, c2.second);
 	assert(res_c.Get_q() == (*my_pk)[c2.second].Get_q());
-	Refresh(result, my_pk);
-	c2 = result;
-	assert(result.first.Get_q() == (*my_pk)[c2.second].Get_q());
+	c2_cipher.my_cipher = result; // copying here
+	Refresh(c2_cipher);
+	assert(c2_cipher.my_cipher.first.Get_q() == (*my_pk)[c2.second].Get_q());
 	assert(c2.first.Get_q() == (*my_pk)[c2.second].Get_q());
-
-	//	Refresh(c2, my_pk);
       }
     } else {
       while (c1.second != c2.second) {
@@ -131,17 +135,23 @@ void FHE_Cipher_Text::Update_To_Same_Level(Pair<R_Ring_Vector, int> &c1, Pair<R_
 	}
 	Pair<R_Ring_Vector, int> result(res_c, c1.second);
 	assert(res_c.Get_q() == (*my_pk)[c1.second].Get_q());
-	Refresh(result, my_pk);
-	c1 = result;
-	assert(result.first.Get_q() == (*my_pk)[c1.second].Get_q());
+	c1_cipher.my_cipher = result; // copying here
+	Refresh(c1_cipher);
+	assert(c1_cipher.my_cipher.first.Get_q() == (*my_pk)[c1.second].Get_q());
 	assert(c1.first.Get_q() == (*my_pk)[c1.second].Get_q());
-	//	Refresh(c1, my_pk);
       }
     }
   }
 }
 
-Pair<R_Ring_Vector, int> FHE_Cipher_Text::Mult(Pair<R_Ring_Vector, int> c, ZZ n, FHE_Secret_Key_Type *sk) {
+FHE_Cipher_Text FHE_Cipher_Text::Mult(FHE_Cipher_Text c_cipher, ZZ n) {
+  Pair<R_Ring_Vector, int> c = c_cipher.my_cipher;
+  ZZ ThNoise = c_cipher.ThNoise;
+  FHE_Secret_Key_Type *sk = my_sk;
+  FHE_Public_Key_Type *pk = my_pk;
+  ThNoise = c.first.Get_Field_Expansion() * ThNoise * n;
+  assert(ThNoise * 2 < c.first.Get_q());
+  
   /**** debug code ****/
   // noise check
   ZZ B;
@@ -163,16 +173,29 @@ Pair<R_Ring_Vector, int> FHE_Cipher_Text::Mult(Pair<R_Ring_Vector, int> c, ZZ n,
     assert(B * 2 < c.first.Get_q());
   }
   /**** endof debug code ****/
- 
-  Pair<R_Ring_Vector, int> result(res_c, c.second);
-  Refresh(result, my_pk, sk);
+
+  FHE_Cipher_Text result = FHE_Cipher_Text(Pair<R_Ring_Vector, int>(res_c, c.second), my_pk, my_p, ThNoise, my_sk);
+  Refresh(result);
   return result;
 }
 
-Pair<R_Ring_Vector, int> FHE_Cipher_Text::Add(Pair<R_Ring_Vector, int> c1, Pair<R_Ring_Vector, int> c2, bool sign, FHE_Secret_Key_Type *sk) { // sign = true for addition, sign = false for substraction
+// here should be copying, i.e. we do not want to change given ciphers
+FHE_Cipher_Text FHE_Cipher_Text::Add(FHE_Cipher_Text c1_cipher, FHE_Cipher_Text c2_cipher, bool sign) { // sign = true for addition, sign = false for substraction
+  Pair<R_Ring_Vector, int> &c1 = c1_cipher.my_cipher;
+  Pair<R_Ring_Vector, int> &c2 = c2_cipher.my_cipher;
+  FHE_Secret_Key_Type *sk = my_sk;
+
   int L = ((*my_pk).size() - 1) / 2;
-  Update_To_Same_Level(c1, c2);
+  Update_To_Same_Level(c1_cipher, c2_cipher);
+  ZZ ThNoise = c1_cipher.ThNoise + c2_cipher.ThNoise;
   bool need_refresh = false; // TODO: deduce this value from theoretical estimations
+  if (ThNoise * 2 >= c1.first.Get_q()) {
+    std::cout << "c1.ThNoise = " << c1_cipher.ThNoise << std::endl;
+    std::cout << "c2.ThNoise = " << c2_cipher.ThNoise << std::endl;
+    std::cout << "ThNoise = " << ThNoise << std::endl;
+    std::cout << c1.first.Get_q() << std::endl;
+  }
+  assert(ThNoise * 2 < c1.first.Get_q()); // TODO: to think how to handle this event
 
   /**** debug code ****/
   ZZ B1, B2;
@@ -201,23 +224,28 @@ Pair<R_Ring_Vector, int> FHE_Cipher_Text::Add(Pair<R_Ring_Vector, int> c1, Pair<
     }
     assert(c1.second >= 1);
     // going from c1.second level to c1.second - 1 level
-    Pair<R_Ring_Vector, int> result(c3, c1.second);
-    Refresh(result, my_pk, sk);
+    FHE_Cipher_Text result = FHE_Cipher_Text(Pair<R_Ring_Vector, int>(c3, c1.second), my_pk, my_p, ThNoise, my_sk);
+    Refresh(result);
 
     /**** debug code ****/
     if (sk != NULL) {
-      ZZ B = result.first.Dot_Product((*sk)[result.second].Tensor_Product((*sk)[result.second])).Get_Norm();
-      assert(B * 2 < result.first.Get_q());
+      ZZ B = result.my_cipher.first.Dot_Product((*sk)[result.my_cipher.second].Tensor_Product((*sk)[result.my_cipher.second])).Get_Norm();
+      assert(B * 2 < result.my_cipher.first.Get_q());
     }
     /**** endof debug code ****/
-     return result;
+    return result;
   }
-  return Pair<R_Ring_Vector, int>(c3_p, c1.second);
+  return FHE_Cipher_Text(Pair<R_Ring_Vector, int>(c3_p, c1.second), my_pk, my_p, ThNoise, my_sk);
 }
 
-Pair<R_Ring_Vector, int> FHE_Cipher_Text::Mult(Pair<R_Ring_Vector, int> c1, Pair<R_Ring_Vector, int> c2, FHE_Secret_Key_Type *sk) {
+FHE_Cipher_Text FHE_Cipher_Text::Mult(FHE_Cipher_Text c1_cipher, FHE_Cipher_Text c2_cipher) {
+  FHE_Secret_Key_Type *sk = my_sk;
+  Pair<R_Ring_Vector, int> &c1 = c1_cipher.my_cipher, &c2 = c2_cipher.my_cipher;
+  
   int L = ((*my_pk).size() - 1) / 2;
-  Update_To_Same_Level(c1, c2);
+  Update_To_Same_Level(c1_cipher, c2_cipher);
+  ZZ ThNoise = c1_cipher.ThNoise * c2_cipher.ThNoise * c1.first.Get_Field_Expansion();
+  assert(ThNoise * 2 < c1.first.Get_q());
 
   /**** debug code ****/
   ZZ B1, B2;
@@ -252,7 +280,7 @@ Pair<R_Ring_Vector, int> FHE_Cipher_Text::Mult(Pair<R_Ring_Vector, int> c1, Pair
   /**** endof debug code ****/
 
   // going from c1.second level to c1.second - 1 level
-  Pair<R_Ring_Vector, int> result(c3, c1.second);
-  Refresh(result, my_pk, sk);
+  FHE_Cipher_Text result = FHE_Cipher_Text(Pair<R_Ring_Vector, int>(c3, c1.second), my_pk, my_p, ThNoise, my_sk);
+  Refresh(result);
   return result;
 }
