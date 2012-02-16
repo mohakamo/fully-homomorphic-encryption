@@ -91,7 +91,7 @@ public:
   }
   
   R_Ring_Vector operator + (const R_Ring_Vector &r) const {
-    assert(dimension == r.dimension && r.dimension != 0);
+    // assert(dimension == r.dimension && r.dimension != 0);
     R_Ring_Vector res(Get_q(), Get_d(), dimension);
     for (int i = 0; i < dimension; i++) {
       res[i] = vec[i] + r.vec[i];
@@ -101,7 +101,7 @@ public:
   }
 
   R_Ring_Vector operator - (const R_Ring_Vector &r) const {
-    assert(dimension == r.dimension && r.dimension != 0);
+    // assert(dimension == r.dimension && r.dimension != 0);
     R_Ring_Vector res(Get_q(), Get_d(), dimension);
     for (int i = 0; i < dimension; i++) {
       res[i] = vec[i] - r.vec[i];
@@ -115,7 +115,7 @@ public:
     }*/
   
   R_Ring_Number Dot_Product(const R_Ring_Vector &r) const {
-    assert(dimension == r.dimension && r.dimension != 0);
+    // assert(dimension == r.dimension && r.dimension != 0);
     R_Ring_Number res(Get_q(), Get_d()); // the number will be zero by default
     for (int i = 0; i < dimension; i++) {
       res += vec[i] * r.vec[i];
@@ -124,13 +124,15 @@ public:
   }
 
   R_Ring_Vector operator *(const R_Ring_Vector &v) const {
-    assert(Get_Dimension() == v.Get_Dimension());
+    // assert(Get_Dimension() == v.Get_Dimension());
     R_Ring_Vector res(Get_q(), Get_d(), Get_Dimension());
     for (int i = 0; i < Get_Dimension(); i++) {
       res.vec[i] = vec[i] * v.vec[i];
     }
     return res;
   }
+
+  R_Ring_Vector operator *(const R_Ring_Matrix &m) const;
 
   
   R_Ring_Vector operator *(ZZ number) const {
@@ -162,23 +164,23 @@ public:
   }
   
   ZZ Get_q(void) const {
-    assert(dimension != 0);
+    // assert(dimension != 0);
     return vec[0].Get_q();
   }
   
   int Get_d(void) const {
-    assert(dimension != 0);
+    // assert(dimension != 0);
     return vec[0].Get_d();
   }
   
   double Get_Field_Expansion(void) const {
-    assert(dimension != 0);
+    // assert(dimension != 0);
     return vec[0].Get_Field_Expansion();
   }
 
   // Returns the vector of elements start_index, ..., end_index
-  R_Ring_Vector Get_Sub_Vector(int start_index, int end_index) {
-    assert(end_index >= start_index && start_index >= 0 && end_index < dimension);
+  R_Ring_Vector Get_Sub_Vector(int start_index, int end_index) const {
+    // assert(end_index >= start_index && start_index >= 0 && end_index < dimension);
     R_Ring_Vector res_v(Get_q(), Get_d(), end_index - start_index + 1);
     for (int i = start_index; i <= end_index; i++) {
       res_v[i - start_index] = vec[i];
@@ -189,7 +191,7 @@ public:
   R_Ring_Matrix Transpose() const;
   
   R_Ring_Vector Tensor_Product(const R_Ring_Vector &r) const {
-    assert(Get_Dimension() == r.Get_Dimension());
+    // assert(Get_Dimension() == r.Get_Dimension());
     int new_dimension = (Get_Dimension() * (Get_Dimension() + 1)) / 2;
     R_Ring_Vector res(Get_q(), Get_d(), new_dimension);
     int index = 0;
@@ -198,7 +200,7 @@ public:
 	res[index++] = vec[i] * r.vec[j];
       }
     }
-    assert(index == new_dimension);
+    // assert(index == new_dimension);
     return res;
   }
 

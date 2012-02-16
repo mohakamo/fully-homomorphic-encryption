@@ -55,7 +55,7 @@ public:
   
   // Assume Initialize is called on blank instance, otherwise there will be memory leak for vec
   void Initialize(ZZ q_, int d_) {
-    assert(q_ != 0 && d_ != 0);
+    // assert(q_ != 0 && d_ != 0);
     q = q_;
     d = d_;
     vec = new ZZ [2 * d];
@@ -74,7 +74,7 @@ public:
     } else if (n < q_half_a) {
       n += q;
     }
-    assert(n <= q_half_b && n >= q_half_a);
+    // assert(n <= q_half_b && n >= q_half_a);
     return n; */
   }
 
@@ -88,7 +88,7 @@ public:
     } else if (n < q_half_a) {
       n += (-(n - q_half_a + 1) / modul + 1) * modul;
     }
-    assert(n <= q_half_b && n >= q_half_a);
+    // assert(n <= q_half_b && n >= q_half_a);
     return n;
   }    
 
@@ -106,7 +106,7 @@ public:
   }
   
   const R_Ring_Number operator +(const R_Ring_Number &v) const {
-    assert(q == v.q && d == v.d);
+    // assert(q == v.q && d == v.d);
     R_Ring_Number res_v(q, d);
     for (int i = 0; i < d; i++) {
       // res_v.vec[i] = (vec[i] + v.vec[i]) % q;
@@ -116,7 +116,7 @@ public:
   }
 
   const R_Ring_Number operator -(const R_Ring_Number &v) const {
-    assert(q == v.q && d == v.d);
+    // assert(q == v.q && d == v.d);
     R_Ring_Number res_v(q, d);
     for (int i = 0; i < d; i++) {
       // res_v.vec[i] = (vec[i] + v.vec[i]) % q;
@@ -126,7 +126,7 @@ public:
   }
   
   R_Ring_Number& operator +=(const R_Ring_Number &v) {
-    assert(d == v.d && q == v.q);
+    // assert(d == v.d && q == v.q);
     for (int i = 0; i < d; i++) {
       // vec[i] = (vec[i] + v.vec[i]) % q;
       vec[i] = Fast_Reduce(vec[i] + v.vec[i]);
@@ -156,7 +156,7 @@ public:
   }
   
   R_Ring_Number& operator =(ZZ n) {
-    assert(d != 0 && q > 0 && vec != NULL);
+    // assert(d != 0 && q > 0 && vec != NULL);
     for (int i = 0; i < d; i++) {
       vec[i] = 0;
     }
@@ -180,7 +180,7 @@ public:
   }
   
   R_Ring_Number operator *(const R_Ring_Number &v) const {
-    assert(q == v.q && d == v.d);
+    // assert(q == v.q && d == v.d);
     R_Ring_Number res_v(q, d);
     
     for (int i = 0; i < d; i++) {
@@ -251,7 +251,7 @@ public:
     } else if (n < q_half_a) {
       n += (-(n - q_half_a + 1) / modul + 1) * modul;
     }
-    assert(n <= q_half_b && n >= q_half_a);
+    // assert(n <= q_half_b && n >= q_half_a);
     return n;
   }
   
@@ -269,7 +269,7 @@ public:
   }
 
   void Change_Modul(ZZ new_q) {
-    assert(new_q > 0);
+    // assert(new_q > 0);
     q = new_q;
     for (int i = 0; i < d; i++) {
       vec[i] = Reduce(vec[i]);
@@ -277,12 +277,12 @@ public:
   }
 
   void Increase_Modul(ZZ new_q) {
-    assert(q <= new_q);
+    // assert(q <= new_q);
     q = new_q;
   }
 
   void Decrease_Modul(ZZ new_q) {
-    assert(q >= new_q);
+    // assert(q >= new_q);
     for (int i = 0; i < d; i++) {
       vec[i] = Reduce(vec[i]);
     }
@@ -291,15 +291,15 @@ public:
 
   R_Ring_Number Scale(ZZ q_, ZZ p, ZZ r) {
     if (r == 2) {
-    assert(q_ == q);
-    assert(p < q);
+    // assert(q_ == q);
+    // assert(p < q);
     if (p % 2 != 1 || q % 2 != 1) {
       std::cout << "p % 2 = " << p % 2 << std::endl;
       std::cout << "q % 2 = " << q % 2 << std::endl;
       
-      assert(p % 2 == 1 && q % 2 == 1);
+      // assert(p % 2 == 1 && q % 2 == 1);
     }
-    assert(r == 2); // for simplicity, in future should be assert(r < p)
+    // assert(r == 2); // for simplicity, in future should be // assert(r < p)
     //    long double fraq = (p - 1) / (long double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
     R_Ring_Number res_v(p, d);
     for (int i = 0; i < d; i++) {
@@ -316,19 +316,19 @@ public:
 	  res_v[i] = value[j];
 	}
       }
-      assert(2 * abs(res_v[i] - tmp) <= r);
-      assert(max_dist != -1);
+      // assert(2 * abs(res_v[i] - tmp) <= r);
+      // assert(max_dist != -1);
     }
     return res_v;
     } else {
-    assert(q_ == q);
-    assert(p < q);
+    // assert(q_ == q);
+    // assert(p < q);
     if (p % r != 1 || q % r != 1) {
       std::cout << "p = " << p << ", q = " << q << ", r = " << r << std::endl;
       std::cout << "p % r = " << p % r << std::endl;
       std::cout << "q % r = " << q % r << std::endl;
       
-      assert(p % r == 1 && q % r == 1);
+      // assert(p % r == 1 && q % r == 1);
     }
     //    double fraq = (p - 1) / (double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
     R_Ring_Number res_v(p, d);
@@ -369,7 +369,7 @@ public:
 	std::cout << "sizeof(double) = " << sizeof(double) << std::endl;
 	exit(1);
       }
-      assert(max_dist != -1);
+      // assert(max_dist != -1);
     }
     return res_v;
     }      
@@ -426,10 +426,9 @@ public:
       bound = q;
     }
     R_Ring_Number r(q, d);
+    ZZ sub_entr = (bound % 2 == 0) ? (bound - 2) / 2 : (bound - 1) / 2;
     for (int i = 0; i < d; i++) {
-      ZZ random_number;
-      random_number = rand();
-      r.vec[i] = /*rand() % bound;*/Clamp(random_number, bound);
+      r.vec[i] = RandomBnd(bound) - sub_entr;
     }
     return r;
   }

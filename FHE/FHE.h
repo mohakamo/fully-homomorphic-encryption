@@ -5,6 +5,7 @@
 #ifndef _FHE_H_
 #define _FHE_H_
 
+#include "Assert.h"
 #include "GLWE.h"
 #include "Pair.h"
 #include "time.h"
@@ -20,15 +21,15 @@ class FHE_Cipher_Text {
   FHE_Secret_Key_Type *my_sk;
   ZZ my_p;
 
-  R_Ring_Vector Switch_Key(R_Ring_Matrix A, R_Ring_Vector c1);
+  R_Ring_Vector Switch_Key(const R_Ring_Matrix &A, const R_Ring_Vector &c1) const;
  public: // for testing purposes
   ZZ ThNoise;
   static R_Ring_Vector Scale(R_Ring_Vector &x, ZZ q, ZZ p, ZZ r);
-  void Update_To_Same_Level(FHE_Cipher_Text &c1, FHE_Cipher_Text &c2);
+  void Update_To_Same_Level(FHE_Cipher_Text &c1, FHE_Cipher_Text &c2) const;
  private:
-  FHE_Cipher_Text Add(FHE_Cipher_Text c1, FHE_Cipher_Text c2, bool sign = true);
-  FHE_Cipher_Text Mult(FHE_Cipher_Text c1, FHE_Cipher_Text c2);
-  FHE_Cipher_Text Mult(FHE_Cipher_Text c1, ZZ n);
+  FHE_Cipher_Text Add(FHE_Cipher_Text &c1, FHE_Cipher_Text &c2, bool sign = true) const;
+  FHE_Cipher_Text Mult(FHE_Cipher_Text &c1, FHE_Cipher_Text &c2) const;
+  FHE_Cipher_Text Mult(const FHE_Cipher_Text &c1, ZZ n) const;
  public:
  FHE_Cipher_Text(const Pair<R_Ring_Vector, int> &cipher, FHE_Public_Key_Type *pk, ZZ p, ZZ noise, FHE_Secret_Key_Type *sk = NULL) :
   my_cipher(Pair<R_Ring_Vector, int>(R_Ring_Vector(cipher.first), cipher.second)), my_pk(pk), my_p(p), my_sk(sk), ThNoise(noise) {}
@@ -48,20 +49,20 @@ class FHE_Cipher_Text {
  }
   
   FHE_Cipher_Text operator +(FHE_Cipher_Text &c) {
-    assert(my_pk == c.my_pk); // addresses comparison
-    assert(ThNoise != 0);
-    assert(c.ThNoise != 0);
+    // assert(my_pk == c.my_pk); // addresses comparison
+    // assert(ThNoise != 0);
+    // assert(c.ThNoise != 0);
     return Add(*this, c, true);
   }
 
   FHE_Cipher_Text operator -(FHE_Cipher_Text &c) {
-    assert(my_pk == c.my_pk);
-    assert(ThNoise != 0);
-    assert(c.ThNoise != 0);
+    // assert(my_pk == c.my_pk);
+    // assert(ThNoise != 0);
+    // assert(c.ThNoise != 0);
     return Add(*this, c, false);
   }
   
-  FHE_Cipher_Text operator -() { // assuming the field operations keep numbers in range [-(q - 1) / 2; (q - 1) / 2]
+  FHE_Cipher_Text operator -() const { // assuming the field operations keep numbers in range [-(q - 1) / 2; (q - 1) / 2]
     FHE_Cipher_Text result = *this;
     for (int i = 0; i < result.my_cipher.first.Get_Dimension(); i++) {
       result.my_cipher.first[i] = -result.my_cipher.first[i];
@@ -69,15 +70,15 @@ class FHE_Cipher_Text {
     return result;
   }
 
-  FHE_Cipher_Text operator *(ZZ n) {
-    assert(ThNoise != 0);
+  FHE_Cipher_Text operator *(ZZ n) const {
+    // assert(ThNoise != 0);
     return Mult(*this, n);
   }
   
   FHE_Cipher_Text operator *(FHE_Cipher_Text &c) {
-    assert(my_pk == c.my_pk); // addresses, comparison
-    assert(ThNoise != 0);
-    assert(c.ThNoise != 0);
+    // assert(my_pk == c.my_pk); // addresses, comparison
+    // assert(ThNoise != 0);
+    // assert(c.ThNoise != 0);
     return Mult(*this, c);
   }
 
@@ -86,22 +87,23 @@ class FHE_Cipher_Text {
     return Pair<R_Ring_Vector, int>(new_vector, my_cipher.second);
   }
 
-  R_Ring_Number Decrypt(FHE_Params &params, FHE_Secret_Key_Type &sk) {
+  R_Ring_Number Decrypt(const FHE_Params &params, const FHE_Secret_Key_Type &sk) const {
     int j = my_cipher.second;
     return GLWE::Decrypt(params[j], sk[j], my_cipher.first);
   }
 
-  void Refresh(FHE_Cipher_Text &c);
+  void Refresh(FHE_Cipher_Text &c) const;
   void print(void) {
     std::cout << "(";
     my_cipher.first.print();
     std::cout << ", " << my_cipher.second << ")";
   }
   // debugging functions
-  R_Ring_Number Get_Noise(FHE_Params &params, FHE_Secret_Key_Type &sk) {
+  R_Ring_Number Get_Noise(FHE_Params &params, FHE_Secret_Key_Type &sk) const {
     int j = my_cipher.second;
     return GLWE::Get_Noise(params[j], sk[j], my_cipher.first);
   }
+
   Pair<R_Ring_Vector, int>& Get_Cipher() {
     return my_cipher;
   }
@@ -113,28 +115,30 @@ class FHE_Cipher_Text {
 
 class FHE {
  public: // for testing purposes
-  static R_Ring_Vector Bit_Decomposition(R_Ring_Vector x, ZZ q) {
+  static R_Ring_Vector Bit_Decomposition(const R_Ring_Vector &x, ZZ q) {
     assert(q == x.Get_q());
     int noof_vectors = NumBits(q);
     R_Ring_Vector res_r(q, x.Get_d(), noof_vectors * x.Get_Dimension());
+    int index;
     for (int i = 0; i < x.Get_Dimension(); i++) {
+      index = i * noof_vectors;
       for (int p = 0; p < noof_vectors; p++) {
 	for (int j = 0; j < x.Get_d(); j++) {
-	  /* if (x[i][j] < 0) {
-	    std::cout << "x = "; x.print(); std::cout << std::endl;
-	    exit(1);
-	    } */
-	  ZZ n = R_Ring_Number::Clamp(x[i][j], q);
-	  n = n + (n < 0 ? q : ZZ::zero());
-	  //	  assert(n >= 0 && n < q);
-	  res_r[p + i * noof_vectors][j] = (n >> p) & 1; 
+	  // ZZ n = R_Ring_Number::Clamp(x[i][j], q);
+	  ZZ n = x[i][j]; // do not need clamp, since q == x.Get_q() due to first assertion
+	  if (n < 0) {
+	    n += q;
+	  }
+	  //	  // assert(n >= 0 && n < q);
+	  res_r[p + index][j] = (n >> p) & 1; 
 	}
       }
     }
     return res_r;
   }
   
-  static R_Ring_Vector Powersof2(R_Ring_Vector x, ZZ q) {
+  static R_Ring_Vector Powersof2(const R_Ring_Vector &x, ZZ q) {
+    static ZZ TWO = ZZ(INIT_VAL, 2);
     int noof_vectors = NumBits(q);
     R_Ring_Vector res_r(q, x.Get_d(), noof_vectors * x.Get_Dimension());
     int index;
@@ -143,25 +147,27 @@ class FHE {
       res_r[i * noof_vectors] = x[i];
       for (int p = 1; p < noof_vectors; p++) {
 	index = p + i * noof_vectors;
-	res_r[index] = res_r[index - 1] * ZZ(INIT_VAL, 2); // not to have overflowing
+	res_r[index] = res_r[index - 1] * TWO; // not to have overflowing
       }
     }
     return res_r;
   }
  private:  
-  R_Ring_Matrix Switch_Key_Gen(R_Ring_Vector s1, R_Ring_Vector s2, GLWE_Params params2) {
+  R_Ring_Matrix Switch_Key_Gen(const R_Ring_Vector &s1, const R_Ring_Vector &s2, GLWE_Params &params2) {
     // s1 should be in the bit representation, i.e. bounded moduli 2
-    // assert(s1.Get_q() == 2);
+    // // assert(s1.Get_q() == 2);
     int N = s1.Get_Dimension() * NumBits(s2.Get_q());
+    int Old_N = params2.N;
     params2.N = N;
     R_Ring_Matrix A = E.Public_Key_Gen(params2, s2);
-    assert(A.Get_Noof_Columns() == s2.Get_Dimension());
-    assert(A.Get_Noof_Rows() == N);
+    params2.N = Old_N;
+    // assert(A.Get_Noof_Columns() == s2.Get_Dimension());
+    // assert(A.Get_Noof_Rows() == N);
     return A.Add_To_Column(0, Powersof2(s1, s2.Get_q()));
   }
   
   int Choose_mu(int lambda, int L) {
-    // TODO: to be implemented
+    // mu is chosen separately, this value is not used
     return 6;
   }
 
@@ -270,13 +276,17 @@ class FHE {
 	if (noise_bound > 0) {
 	  if (noise_bound > max_noise) {
 	    found_noise_bound = true;
-	    //	    if (justPrint) {
+	    if (justPrint) {
 	      std::cout << "(x, y) = (" << x << ", " << y << ")" << std::endl;
 	      std::cout << "Theoretical upper noise bound = [" <<  noise_bound << "]" << std::endl;
 	      std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl << std::endl;
-	      //	    }
+	    }
 	    max_noise = noise_bound;
 	    if (!justPrint && noise_bound > 1024) {
+	      std::cout << "(x, y) = (" << x << ", " << y << ")" << std::endl;
+	      std::cout << "Theoretical upper noise bound = [" <<  noise_bound << "]" << std::endl;
+	      std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl << std::endl;
+
 	      (*r_noise) = noise_bound;
 	      (*r_q0) = q0;
 	      (*r_mu) = mu;
@@ -305,11 +315,16 @@ class FHE {
     int d = E.Choose_d(lambda, 0, b);
     int n = E.Choose_n(lambda, 0, b);
 
-    int q_size = 15;
+    int q_size = 14;
     int mu = 32;
-    ZZ B = ZZ(INIT_VAL, 1100); // 1182 given
+    ZZ B = ZZ(INIT_VAL, 1100);
     clock_t start = clock();
+    q_size = NumBits(p);
+    mu = NumBits(p);
+    std::cout << "|p| = " << NumBits(p) << std::endl;
+    B = 1024;
     Print_Possible_Parameters(L, b, p, false, &q_size, &mu, &B);
+
     std::cout << "Time for finding parameters = " << (clock() - start) / (double)CLOCKS_PER_SEC << std::endl;
     start = clock();
 
@@ -325,7 +340,7 @@ class FHE {
       params[i].d = params[L].d;
       params[L - i].B = B;
     }
-    // print noise bounds parameters and assert if the interval is empty
+    // print noise bounds parameters and ASSERT if the interval is empty
     // Choose_Noise_Bound(ZZ(INIT_VAL, p), params);
 
     return params;
@@ -341,48 +356,20 @@ class FHE {
     std::vector<R_Ring_Matrix> pk(my_L + 1 + my_L); // first L + 1 slots are devoted to A_0, ..., A_L and next L slots are devoted to tau_(1 -> 0), ..., tau_(L -> L - 1)
     for (int i = my_L; i >= 0; i--) {
       R_Ring_Vector s_i = E.Secret_Key_Gen(params[i]);
-      /* for (int j = 0; j < s_i.Get_Dimension(); j++) {
-	for (int jj = 0; jj < s_i.Get_d(); jj++) {
-	  if (s_i[j][jj] < 0) {
-	    std::cout << "s_" << i << " = "; s_i.print(); std::cout << std::endl;
-	    exit(1);
-	  }
-	}
-	} */
 
       sk[i] = s_i;
       R_Ring_Matrix A_i = E.Public_Key_Gen(params[i], s_i);
       pk[i] = A_i;
       if (i != my_L) {
-	/* for (int j = 0; j < sk[i + 1].Get_Dimension(); j++) {
-	  for (int jj = 0; jj < sk[i + 1].Get_d(); jj++) {
-	    if (sk[i + 1][j][jj] < 0) {
-	      std::cout << "sk[i + 1]" << i << " = "; sk[i + 1].print(); std::cout << std::endl;
-	      exit(1);
-	    }
-	  }
-	  } */
-	
 	R_Ring_Vector s_i_prime = sk[i + 1].Tensor_Product(sk[i + 1]); // from R_{q_j}^{(n_j + 1, 2)} space, i.e. there are n_j * (n_j + 1) element
-	assert(s_i_prime.Get_Dimension() == (sk[i+1].Get_Dimension() * (sk[i+1].Get_Dimension() + 1)) / 2);
-
-	/* for (int j = 0; j < s_i_prime.Get_Dimension(); j++) {
-	  for (int jj = 0; jj < s_i_prime.Get_d(); jj++) {
-	    if (s_i_prime[j][jj] < 0) {
-	      std::cout << "sk[i + 1] = "; sk[i + 1].print(); std::cout << std::endl;
-	      std::cout << "s_i_prime" << " = "; s_i_prime.print(); std::cout << std::endl;
-	      R_Ring_Vector s_i_prime2 = sk[i + 1].Tensor_Product(sk[i + 1]); // from R_{q_j}^{(n_j + 1, 2)} space, i.e. there are n_j * (n_j + 1) element
-	      exit(1);
-	    }
-	  }
-	  } */
+	// assert(s_i_prime.Get_Dimension() == (sk[i+1].Get_Dimension() * (sk[i+1].Get_Dimension() + 1)) / 2);
 
 	R_Ring_Vector s_i_prime_prime = Bit_Decomposition(s_i_prime, params[i + 1].q);
-	assert(s_i_prime_prime.Get_Dimension() == s_i_prime.Get_Dimension() * NumBits(params[i + 1].q));
+	// assert(s_i_prime_prime.Get_Dimension() == s_i_prime.Get_Dimension() * NumBits(params[i + 1].q));
 	R_Ring_Matrix tau_i = Switch_Key_Gen(s_i_prime_prime, s_i, params[i]); // give the bigger modul
-	assert(tau_i.Get_Noof_Columns() == s_i.Get_Dimension());
-	assert(s_i.Get_Dimension() == params[i].n + 1);
-	assert(tau_i.Get_Noof_Rows() == s_i_prime_prime.Get_Dimension() * NumBits(params[i].q));
+	// assert(tau_i.Get_Noof_Columns() == s_i.Get_Dimension());
+	// assert(s_i.Get_Dimension() == params[i].n + 1);
+	// assert(tau_i.Get_Noof_Rows() == s_i_prime_prime.Get_Dimension() * NumBits(params[i].q));
 	pk[my_L + i + 1] = tau_i;
       }
     }
@@ -391,15 +378,9 @@ class FHE {
   }
   
   // For params should be a zero level of parameters generated by Setup, i.e. Setup(...)[0]
-  /*
-    Pair<R_Ring_Vector, int> Encrypt(FHE_Params params, FHE_Public_Key_Type pk, R_Ring_Number m) {
-    return Pair<R_Ring_Vector, int> (E.Encrypt(params[L], pk[L], m), L); // pk[L] == A_L
-    }
-  */
   FHE_Cipher_Text Encrypt(FHE_Params params, FHE_Public_Key_Type *pk, R_Ring_Number m) {
     ZZ ThNoise;
     ThNoise = 1 + params[my_L].p * params[my_L].d * sqrt(params[my_L].d) * params[my_L].N * params[my_L].B;
-    std::cout << "Initial noise = " << ThNoise << std::endl;
     return FHE_Cipher_Text(Pair<R_Ring_Vector, int> (E.Encrypt(params[my_L], (*pk)[my_L], m), my_L), pk, params[0].p, ThNoise);
   }
   

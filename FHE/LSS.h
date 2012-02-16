@@ -5,7 +5,7 @@
 #include "FHE.h"
 
 template<class T>
-void Sum_Up(std::vector<T> &x) {
+void Sum_Up(std::vector<T> &x) { // summing up in a way to get logarithmic depth
   int size = x.size();
   
   while (size > 1) {
@@ -21,7 +21,6 @@ void Sum_Up(std::vector<T> &x) {
 
 template<class T>
 Pair<T, T> Compute_LSS(std::vector<T> xs, std::vector<T> ys, T * den = NULL) {
-  // TODO: need to add in a way to get logarithmic depth!!!!!
   int size = xs.size();
   assert(xs.size() == ys.size());
   std::vector<T> x_x(size), x_y(size), sum_x(size), sum_y(size);
@@ -47,29 +46,11 @@ Pair<T, T> Compute_LSS(std::vector<T> xs, std::vector<T> ys, T * den = NULL) {
     (*den) = tmp_den1 - tmp_den2;
   }
 
-  if (typeid(T) == typeid(FHE_Cipher_Text)) {
-    t2 = (reinterpret_cast<FHE_Cipher_Text *>(&sum_x[0]))->Get_Cipher().second;
-    t3 = (reinterpret_cast<FHE_Cipher_Text *>(&sum_y[0]))->Get_Cipher().second;
-  }
 
   T tmp1 = sum_x[0] * sum_y[0]; // bounded by (size * M)^2
-  if (typeid(T) == typeid(FHE_Cipher_Text)) {
-    t1 = (reinterpret_cast<FHE_Cipher_Text *>(&tmp1))->Get_Cipher().second + 1;
-    if (t1 != t2) {
-      std::cout << "#1 tmp1 = " << t1 << ", sum_x = " << t2 << ", sum_y = " << t3 << std::endl;
-      exit(1);
-    }
-  }
   T tmp2 = x_y[0] * ZZ(INIT_VAL, xs.size()); // bounded by (size * M)^2
-  if (typeid(T) == typeid(FHE_Cipher_Text)) {
-    t1 = (reinterpret_cast<FHE_Cipher_Text *>(&tmp2))->Get_Cipher().second + 1;
-    t2 = (reinterpret_cast<FHE_Cipher_Text *>(&x_y[0]))->Get_Cipher().second;
-    if (t1 != t2) {
-      std::cout << "#2 t1 = " << t1 << ", t2 = " << t2 << std::endl;
-      exit(1);
-    }
-  }
   a = tmp2 - tmp1; // bounded by 2 * (size * M)^2
+
   T tmp3 = x_x[0] * sum_y[0]; // bounded by size^2 * M^3
   T tmp4 = sum_x[0] * x_y[0]; // bounded by size^2 * M^3
   b = tmp3 - tmp4; // bounded by 2 * size^2 * M^3
