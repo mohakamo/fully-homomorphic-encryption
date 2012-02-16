@@ -1,7 +1,3 @@
-// Define below comments all assertions (hopefully) :), no debug information
-#define SLASH
-#define assert SLASHSLASH assert
-
 #include "FHE.h"
 #include "LSS.h"
 #include "Tests.h"

@@ -457,6 +457,10 @@ public:
     }
     return result;
   }
+
+  operator ZZ() {
+    return vec[0];
+  }
 };
 
 
