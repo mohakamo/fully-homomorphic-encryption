@@ -6,7 +6,6 @@
 #define _GLWE_H_
 #include "R_Ring_Matrix.h"
 #include <math.h>
-#include "LOG.h"
 #include <map>
 
 /*** Params for GLWE_Encrption_Scheme ***/
@@ -62,6 +61,7 @@ typedef R_Ring_Vector GLWE_Ciphertext_Type;
 
 /*** Basic GLWE_Encryption_Scheme ***/
 class GLWE {
+ public:
   // q is chosen to be prime of length mu such that q = 1 (mod r), where r is the message module
   static ZZ Choose_q(int mu, ZZ r) {
     static std::map<int, ZZ> primes;

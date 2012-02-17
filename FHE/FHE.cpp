@@ -6,7 +6,9 @@
 // The result is modul c1.Get_q(), to switch to other modul, use Scale
 R_Ring_Vector FHE_Cipher_Text::Switch_Key(const R_Ring_Matrix &A, const R_Ring_Vector &c1) const {
   // assert(A.Get_q() == c1.Get_q());
-  return FHE::Bit_Decomposition(c1, A.Get_q()) * A;
+  R_Ring_Vector res;
+  FHE::Bit_Decomposition(c1, A.Get_q(), res);
+  return res * A;
 }
 
 R_Ring_Vector FHE_Cipher_Text::Scale(R_Ring_Vector &x, ZZ q, ZZ p, ZZ r) {
@@ -28,7 +30,8 @@ void FHE_Cipher_Text::Refresh(FHE_Cipher_Text &c_cipher) const {
 
   // assert(c.second - 1 >= 0);
   int L = ((*my_pk).size() - 1) / 2;
-  R_Ring_Vector c1 = FHE::Powersof2(c.first, (*pk)[c.second].Get_q());
+  R_Ring_Vector c1;
+  FHE::Powersof2(c.first, (*pk)[c.second].Get_q(), c1);
 
   ZZ ThNoise = c_cipher.ThNoise;
   // noise check

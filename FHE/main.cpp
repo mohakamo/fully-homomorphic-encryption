@@ -21,7 +21,7 @@ class Timing_LSS {
     Setup(my_max_dimension, my_bound);
   }
 public:
-  Timing_LSS() : L(3) {}
+  Timing_LSS() : L(2) {}
   /**
    * Setup FHE scheme
    * @param max_dimension - maximum desired dimension
@@ -53,7 +53,7 @@ public:
     }
     //std::cout << "Message modul chosen = " << modul << std::endl;
     if (justPrintParams) {
-      fhe.Print_Possible_Parameters(L, type, modul);
+      fhe.Print_Possible_Parameters(L, type, modul, params);
       return;
     }
 
@@ -159,10 +159,10 @@ int main (int argc, char * const argv[]) {
   */
 
   Timing_LSS timingLSS;
-  const int max_dimension = 10; // till (20, 14) for dimension = 3, modul = 10, noise bound not found
+  const int max_dimension = 2; // till (20, 14) for dimension = 3, modul = 10, noise bound not found
   int elements_modul[] = {3, 5, 7, 9, 11, 13};
 
-  for (int dimension = 5; dimension <= max_dimension; dimension++) {
+  for (int dimension = 2; dimension <= max_dimension; dimension++) {
     for (int modul_i = 0; modul_i < 6; modul_i++) {
       int modul = elements_modul[modul_i];
       timingLSS.Setup(dimension, modul, false);

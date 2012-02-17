@@ -115,10 +115,14 @@ class FHE_Cipher_Text {
 
 class FHE {
  public: // for testing purposes
-  static R_Ring_Vector Bit_Decomposition(const R_Ring_Vector &x, ZZ q) {
+  static void Bit_Decomposition(const R_Ring_Vector &x, ZZ q, R_Ring_Vector &result) {
     assert(q == x.Get_q());
     int noof_vectors = NumBits(q);
-    R_Ring_Vector res_r(q, x.Get_d(), noof_vectors * x.Get_Dimension());
+    if (result.Get_Dimension() != noof_vectors * x.Get_Dimension() ||
+	result.Get_d() != x.Get_d() ||
+	result.Get_q() != x.Get_q()) {
+      result = R_Ring_Vector(q, x.Get_d(), noof_vectors * x.Get_Dimension());
+    }
     int index;
     for (int i = 0; i < x.Get_Dimension(); i++) {
       index = i * noof_vectors;
@@ -130,27 +134,29 @@ class FHE {
 	    n += q;
 	  }
 	  //	  // assert(n >= 0 && n < q);
-	  res_r[p + index][j] = (n >> p) & 1; 
+	  result[p + index][j] = bit(n, p); 
 	}
       }
     }
-    return res_r;
   }
   
-  static R_Ring_Vector Powersof2(const R_Ring_Vector &x, ZZ q) {
+  static void Powersof2(const R_Ring_Vector &x, ZZ q, R_Ring_Vector &result) {
     static ZZ TWO = ZZ(INIT_VAL, 2);
     int noof_vectors = NumBits(q);
-    R_Ring_Vector res_r(q, x.Get_d(), noof_vectors * x.Get_Dimension());
+    if (result.Get_Dimension() != noof_vectors * x.Get_Dimension() ||
+	result.Get_d() != x.Get_d() ||
+	result.Get_q() != q) {
+      result = R_Ring_Vector(q, x.Get_d(), noof_vectors * x.Get_Dimension());
+    }
     int index;
     
     for (int i = 0; i < x.Get_Dimension(); i++) {
-      res_r[i * noof_vectors] = x[i];
+      result[i * noof_vectors] = x[i];
       for (int p = 1; p < noof_vectors; p++) {
 	index = p + i * noof_vectors;
-	res_r[index] = res_r[index - 1] * TWO; // not to have overflowing
+	result[index] = result[index - 1] << 1; // not to have overflowing
       }
     }
-    return res_r;
   }
  private:  
   R_Ring_Matrix Switch_Key_Gen(const R_Ring_Vector &s1, const R_Ring_Vector &s2, GLWE_Params &params2) {
@@ -163,7 +169,9 @@ class FHE {
     params2.N = Old_N;
     // assert(A.Get_Noof_Columns() == s2.Get_Dimension());
     // assert(A.Get_Noof_Rows() == N);
-    return A.Add_To_Column(0, Powersof2(s1, s2.Get_q()));
+    R_Ring_Vector column;
+    Powersof2(s1, s2.Get_q(), column);
+    return A.Add_To_Column(0, column);
   }
   
   int Choose_mu(int lambda, int L) {
@@ -225,80 +233,73 @@ class FHE {
   GLWE E;
   int my_L;
  public:
-  void Print_Possible_Parameters(int L, GLWE_Type type, ZZ modul, bool justPrint = true, int *r_q0 = NULL, int *r_mu = NULL, ZZ *r_noise = NULL) {
+  void Print_Possible_Parameters(int L, GLWE_Type type, ZZ modul,
+				 std::vector<GLWE_Params> &params,
+				 bool justPrint = true, int *r_q0 = NULL,
+				 int *r_mu = NULL, ZZ *r_noise = NULL) {
+    if (params.size() < L + 1) {
+      params.resize(L + 1);
+    }
     std::vector<int> brokenModules;
-    // inifinite cycle inside: interrupt manually
-    bool found_noise_bound = false;
-    int x, y, q0, mu, q0_l, mu_l;
-    static int x0 = 0, y0 = 0;
-    ZZ max_noise = ZZ::zero();
-    q0_l = NumBits(modul) + 1;// * 2; // Why do I did |* 2 here???
-    mu_l = NumBits(modul);
-    if (justPrint) std::cout << "q0_l = " << q0_l << std::endl;
-    //    x0 = 22, y0 = 22;
+    long y, q0_l, mu, mu_l;
+    static long y0 = 0;
+    ZZ B_desired = ZZ(INIT_VAL, 1024);
+
+    q0_l = NumBits(B_desired * 4 * GLWE::Choose_d(0, 0, type) * GLWE::Choose_n(0, 0, type));
+    bool found_q0 = false;
+    int noof_iterations = 0;
     
+    while (!found_q0) { 
+      try {
+	GLWE::Choose_q(q0_l, modul);
+      } catch (bool b) {
+	q0_l++;
+	noof_iterations++;
+	continue;
+      }
+      found_q0 = true;
+    }
+    std::cout << "Found q0 of size " << q0_l << " after " << noof_iterations << " iterations " << std::endl;
+    mu_l = NumBits(modul);
     for (y = y0; ; y++) {
-      //      std::cout << y << std::endl;
-      for (y == y0 ? x = x0 : x = 0; x <= y; x++) {
-	//	std::cout << "  " << x << std::endl;
-	mu = x + mu_l;
-	q0 = y - x + q0_l;
-	//	for (int nd = 2; nd < (q0 + L * mu - 1000) * 100; nd++)
-	//	std::cout << "(" << q0 << ", " << mu << "), (" << x << ", " << y << ")" << std::endl;
+      mu = y + mu_l;
+      long q0_temp = q0_l;
+      long mu_temp = mu;
+      
+      for (int i = 0; i <= L; i++) {
+	while (std::find(brokenModules.begin(), brokenModules.end(), q0_temp) != brokenModules.end()) {
+	  q0_temp++;
+	}
 
-	std::vector<GLWE_Params> try_params(L + 1);
-	bool err_setup = false;
-	for (int i = 0; i <= L; i++) {
-	  int modul_size;
-	  modul_size = q0 + i * mu;
-	  if (std::find(brokenModules.begin(), brokenModules.end(), modul_size) != brokenModules.end()) {
-	    err_setup = true;
-	    break;
-	  }
+	bool err_setup = true;
+	while (err_setup) {
 	  try {
-	    try_params[i] = E.Setup(100, modul_size, type, modul); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
+	    params[i] = E.Setup(100, q0_temp, type, modul); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
 	  } catch (bool b) {
-	    //   std::cout << "Exception caught" << std::endl;
-	    err_setup = true;
-	    brokenModules.push_back(modul_size);
-	    break;
+	    brokenModules.push_back(q0_temp);
+	    continue;
 	  }
+	  err_setup = false;
 	}
+	q0_temp += mu;
+      }
+      ZZ noise_bound;
+      noise_bound = Choose_Noise_Bound(modul, params);
 
-	if (err_setup) {
-	  continue;
-	}
-	ZZ noise_bound;
-	// std::cout << "  mu = " << mu << ", q0 = " << q0 << std::endl;
-	noise_bound = Choose_Noise_Bound(modul, try_params);
-	//	std::cout << "Noise bound = " << noise_bound << std::endl;
-
-	if (noise_bound > 0) {
-	  if (noise_bound > max_noise) {
-	    found_noise_bound = true;
-	    if (justPrint) {
-	      std::cout << "(x, y) = (" << x << ", " << y << ")" << std::endl;
-	      std::cout << "Theoretical upper noise bound = [" <<  noise_bound << "]" << std::endl;
-	      std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl << std::endl;
-	    }
-	    max_noise = noise_bound;
-	    if (!justPrint && noise_bound > 1024) {
-	      std::cout << "(x, y) = (" << x << ", " << y << ")" << std::endl;
-	      std::cout << "Theoretical upper noise bound = [" <<  noise_bound << "]" << std::endl;
-	      std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl << std::endl;
-
-	      (*r_noise) = noise_bound;
-	      (*r_q0) = q0;
-	      (*r_mu) = mu;
-	      x0 = x;
-	      y0 = y;
-	      return;
-	    }
-	    //	    exit(1);
+      if (noise_bound > 0) {
+	if (noise_bound > B_desired) {
+	  std::cout << "y = ("  << y << ")" << std::endl;
+	  std::cout << "Theoretical upper noise bound = [" <<  noise_bound << "]" << std::endl;
+	  std::cout << "Parameters found, q0 = " << q0_l << ", mu = " << mu << std::endl << std::endl;	
+	  for (int i = 0; i <= L; i++) {
+	    std::cout << "|q" << i << "| = " << NumBits(params[i].q) << " ";
 	  }
+	  std::cout << std::endl;
+	  y0 = y;
+	  return;
 	}
       }
-      }
+    }
   }
 
   /**
@@ -323,17 +324,14 @@ class FHE {
     mu = NumBits(p);
     std::cout << "|p| = " << NumBits(p) << std::endl;
     B = 1024;
-    Print_Possible_Parameters(L, b, p, false, &q_size, &mu, &B);
+    std::vector<GLWE_Params> params(L + 1);
+    Print_Possible_Parameters(L, b, p, params, false, &q_size, &mu, &B);
 
     std::cout << "Time for finding parameters = " << (clock() - start) / (double)CLOCKS_PER_SEC << std::endl;
     start = clock();
 
-    std::cout << "q0 = " << q_size << ", mu = " << mu << ", B = " << B << std::endl;
-    
-    std::vector<GLWE_Params> params(L + 1);
     for (int i = 0; i <= L; i++) {
-      int modul_size = q_size + i * mu;
-      params[i] = E.Setup(lambda, modul_size, b, p); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
+      std::cout << "q" << i << " = " << params[i].q << std::endl;
     }
 			     
     for (int i = 0; i < L; i++) {
@@ -363,8 +361,8 @@ class FHE {
       if (i != my_L) {
 	R_Ring_Vector s_i_prime = sk[i + 1].Tensor_Product(sk[i + 1]); // from R_{q_j}^{(n_j + 1, 2)} space, i.e. there are n_j * (n_j + 1) element
 	// assert(s_i_prime.Get_Dimension() == (sk[i+1].Get_Dimension() * (sk[i+1].Get_Dimension() + 1)) / 2);
-
-	R_Ring_Vector s_i_prime_prime = Bit_Decomposition(s_i_prime, params[i + 1].q);
+	R_Ring_Vector s_i_prime_prime;
+	Bit_Decomposition(s_i_prime, params[i + 1].q, s_i_prime_prime);
 	// assert(s_i_prime_prime.Get_Dimension() == s_i_prime.Get_Dimension() * NumBits(params[i + 1].q));
 	R_Ring_Matrix tau_i = Switch_Key_Gen(s_i_prime_prime, s_i, params[i]); // give the bigger modul
 	// assert(tau_i.Get_Noof_Columns() == s_i.Get_Dimension());
