@@ -69,6 +69,11 @@ public:
     for (int i = 0; i < dimension; i++) {
       matrix[i] = m.matrix[i];
     }
+    if (dimension != 0 && Get_q() != m.Get_q()) {
+      for (int i = 0; i < dimension; i++) {
+	matrix[i].Change_Modul(m.Get_q());
+      }
+    }
     return *this;
   }
   

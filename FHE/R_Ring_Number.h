@@ -1,4 +1,4 @@
-/*
+/**
  *  R_Ring_Number.h
  *  Created by valerini on 1/5/12.
  */
@@ -328,7 +328,7 @@ public:
       std::cout << "p % r = " << p % r << std::endl;
       std::cout << "q % r = " << q % r << std::endl;
       
-      // assert(p % r == 1 && q % r == 1);
+      assert(p % r == 1 && q % r == 1);
     }
     //    double fraq = (p - 1) / (double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
     R_Ring_Number res_v(p, d);

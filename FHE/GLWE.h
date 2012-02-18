@@ -120,6 +120,7 @@ class GLWE {
     assert(B >= ZZ(INIT_VAL, 2));
     R_Ring_Number res = R_Ring_Number::Uniform_Rand(B, d);
     res.Increase_Modul(q);
+    //    R_Ring_Number res(q, d);
     return res;
   }
 
@@ -156,13 +157,40 @@ public:
        v
   ***/
   R_Ring_Matrix Public_Key_Gen(const GLWE_Params &params, const R_Ring_Vector &sk, R_Ring_Vector *ksi_noise_for_debug = NULL) const {
+    /*
+    assert(params.q == sk.Get_q());
+    // A_prime
+    R_Ring_Matrix A_prime(params.q, params.d, params.N, params.n);
+    for (int i = 0; i < A_prime.Get_Noof_Rows(); i++) {
+      for (int j = 0; j < A_prime.Get_Noof_Columns(); j++) {
+	A_prime(i, j) = R_Ring_Number::Uniform_Rand(params.q, params.d);
+      }
+    }
+
+    R_Ring_Vector ksi_noise(params.q, params.d, params.N);
+    for (int i = 0; i < params.N; i++) {
+      ksi_noise[i] = params.ksi();
+    }
+
+    R_Ring_Matrix pk(params.q, params.d, params.N, params.n + 1);
+    pk.Set_Column(0, A_prime * sk.Get_Sub_Vector(1, params.n) + ksi_noise * params.p);
+    pk.Set_Block(0, 1, -A_prime);
+
+    if (ksi_noise_for_debug != NULL) {
+      (*ksi_noise_for_debug) = ksi_noise;
+    }
+    */
+    //    assert(sk.Get_Dimension() == params.n + 1);
+    //    assert(s_prime.Get_Dimension() == params.n);
+    //    assert(As.Get_Dimension() == params.N);
+    // Old version
     assert(params.q == sk.Get_q());
     // A_prime
     R_Ring_Matrix A_prime(params.q, params.d, params.N, params.n);
     R_Ring_Number sample(params.q, params.d);
     for (int i = 0; i < A_prime.Get_Noof_Rows(); i++) {
       for (int j = 0; j < A_prime.Get_Noof_Columns(); j++) {
-	A_prime(i, j) = sample.Uniform_Rand(params.q, params.d);
+        A_prime(i, j) = sample.Uniform_Rand(params.q, params.d);
       }
     }
 
@@ -189,6 +217,7 @@ public:
     if (ksi_noise_for_debug != NULL) {
       (*ksi_noise_for_debug) = ksi_noise;
     }
+
     return pk;
   }
   

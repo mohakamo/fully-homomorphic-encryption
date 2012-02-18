@@ -14,10 +14,11 @@ LIBS = -lntl
 CC = g++
 CXXFLAGS = $(COMPILERFLAGS) -g $(INCDIRS) $(LIBDIRS)
 
-chehoff : $(objects)
-	$(CC) $(CXXFLAGS) -o chehoff $(objects) $(LIBS)
+fhe : $(objects)
+	$(CC) $(CXXFLAGS) -o fhe $(objects) $(LIBS)
 
-main.o : $(arithmetic_objects) Pair.h GLWE.h FHE.h LSS.h Tests.h NTL/ZZ.h main.cpp
+
+main.o : $(arithmetic_objects) Pair.h GLWE.h FHE.h LSS.h NTL/ZZ.h main.cpp Tests.h
 	$(CC) $(CXXFLAGS) -c main.cpp
 R_Ring_Vector.o : $(arithmetic_objects) NTL/ZZ.h R_Ring_Vector.cpp
 	$(CC) $(CXXFLAGS) -c R_Ring_Vector.cpp
@@ -26,4 +27,4 @@ FHE.o : $(arithmetic_objects) Pair.h GLWE.h FHE.h NTL/ZZ.h FHE.cpp
 
 .PHONY : clean
 clean :
-	rm chehoff $(objects)
+	rm fhe $(objects)

@@ -29,8 +29,9 @@ public:
    **/
   void Setup(int max_dimension, int bound, bool justPrintParams = false) {
     type = RLWE_Based;
-    if (bound % 2 == 0) bound = bound / 2;
-    else bound = (bound - 1) / 2;
+    assert(bound % 2 == 1);
+    bound = (bound - 1) / 2;
+
     my_max_dimension = max_dimension;
     my_bound = bound;
 
@@ -38,7 +39,7 @@ public:
     ZZ zz_dimension = ZZ(INIT_VAL, max_dimension);
     ZZ zz_bound = ZZ(INIT_VAL, bound);
     ZZ lower_bound_on_modul;
-    lower_bound_on_modul = 2 * zz_dimension * zz_dimension * zz_bound * zz_bound * zz_bound + 1;
+    lower_bound_on_modul = 4 * zz_dimension * zz_dimension * zz_bound * zz_bound * zz_bound + 1;
     //    std::cout << "lower_bound_on_modul = " << lower_bound_on_modul << std::endl;
     //    std::cout << "upper_bound_on_modul = " << 2 * lower_bound_on_modul << std::endl;
     ZZ upper_bound_on_modul;
@@ -65,8 +66,6 @@ public:
     Pair<FHE_Secret_Key_Type, FHE_Public_Key_Type> sk_pk = fhe.Key_Gen(params);
     sk = sk_pk.first;
     pk = sk_pk.second;
-
-    //    std::cout << "params.size() = " << params.size() << std::endl;
   }
 
   /**
@@ -80,15 +79,15 @@ public:
     clock_t start, total_start = clock();
     double time = 0;
 
-    std::cout << "params.size() = " << params.size() << std::endl;
+    assert(bound % 2 == 1);
 
     std::vector<R_Ring_Number> messages_x, messages_y;
     std::vector<FHE_Cipher_Text> c_x, c_y;
     start = clock();
     R_Ring_Number mx(modul, params[0].d), my(modul, params[0].d);
     for (int j = 0; j < dimension; j++) {
-      mx = RandomBnd(ZZ(INIT_VAL, bound));
-      my = RandomBnd(ZZ(INIT_VAL, bound));
+      mx = RandomBnd(ZZ(INIT_VAL, bound)) - (bound + 1) / 2;
+      my = RandomBnd(ZZ(INIT_VAL, bound)) - (bound + 1) / 2;
       messages_x.push_back(mx);
       messages_y.push_back(my);
       c_x.push_back(fhe.Encrypt(params, &pk, messages_x[j]));
@@ -119,6 +118,14 @@ public:
 
     if (res.first != res_d.first || res.second != res_d.second) {
       std::cout << "FAILUR!" << std::endl;
+      std::cout << "("; res.first.print();
+      std::cout << ", ";
+      res.second.print();
+      std::cout << ") != (";
+      res_d.first.print();
+      std::cout << ", ";
+      res_d.second.print();
+      std::cout << ")" << std::endl;
       std::cout << "params = ";
       for (int i = 0; i < params.size(); i++) {
 	params[i].print();
@@ -143,6 +150,7 @@ public:
 	}
       }
       std::cout << ")" << std::endl;
+      //      exit(1);
     }
 
     std::cout << "Total time = " <<  (clock() - total_start) / (double)CLOCKS_PER_SEC << std::endl;
@@ -167,7 +175,7 @@ int main (int argc, char * const argv[]) {
       int modul = elements_modul[modul_i];
       timingLSS.Setup(dimension, modul, false);
       std::cout << "dimension = " << dimension << ", modul = " << modul << std::endl;
-      timingLSS.Run_LSS(modul, dimension);
+      timingLSS.Run_LSS(dimension, modul);
       std::cout << std::endl;
     }
   }

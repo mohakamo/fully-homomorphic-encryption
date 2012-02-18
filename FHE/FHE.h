@@ -134,7 +134,7 @@ class FHE {
 	    n += q;
 	  }
 	  //	  // assert(n >= 0 && n < q);
-	  result[p + index][j] = bit(n, p); 
+	  result[p + index][j] = (n >> p) & 1; 
 	}
       }
     }
@@ -154,7 +154,7 @@ class FHE {
       result[i * noof_vectors] = x[i];
       for (int p = 1; p < noof_vectors; p++) {
 	index = p + i * noof_vectors;
-	result[index] = result[index - 1] << 1; // not to have overflowing
+	result[index] = result[index - 1] * TWO; // not to have overflowing
       }
     }
   }
@@ -296,6 +296,9 @@ class FHE {
 	  }
 	  std::cout << std::endl;
 	  y0 = y;
+	  (*r_noise) = noise_bound;
+	  (*r_q0) = q0_l;
+	  (*r_mu) = mu;
 	  return;
 	}
       }
@@ -333,7 +336,7 @@ class FHE {
     for (int i = 0; i <= L; i++) {
       std::cout << "q" << i << " = " << params[i].q << std::endl;
     }
-			     
+
     for (int i = 0; i < L; i++) {
       params[i].d = params[L].d;
       params[L - i].B = B;
