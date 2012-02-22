@@ -119,6 +119,7 @@ class GLWE {
   static R_Ring_Number Noise(ZZ q, int d, ZZ B, ZZ p) {
     assert(B >= ZZ(INIT_VAL, 2));
     R_Ring_Number res = R_Ring_Number::Uniform_Rand(B, d);
+    //    R_Ring_Number res = R_Ring_Number::Uniform_Rand(ZZ(INIT_VAL, 2), d);
     res.Increase_Modul(q);
     //    R_Ring_Number res(q, d);
     return res;

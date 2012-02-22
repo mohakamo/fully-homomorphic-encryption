@@ -233,72 +233,71 @@ class FHE {
   GLWE E;
   int my_L;
  public:
-  void Print_Possible_Parameters(int L, GLWE_Type type, ZZ modul,
-				 std::vector<GLWE_Params> &params,
-				 bool justPrint = true, int *r_q0 = NULL,
-				 int *r_mu = NULL, ZZ *r_noise = NULL) {
-    if (params.size() < L + 1) {
-      params.resize(L + 1);
-    }
+  void Print_Possible_Parameters(int L, GLWE_Type type, ZZ modul, FHE_Params &params, ZZ &B,
+				 bool justPrint = true) {
     std::vector<int> brokenModules;
-    long y, q0_l, mu, mu_l;
-    static long y0 = 0;
-    ZZ B_desired = ZZ(INIT_VAL, 1024);
-
-    q0_l = NumBits(B_desired * 4 * GLWE::Choose_d(0, 0, type) * GLWE::Choose_n(0, 0, type));
-    bool found_q0 = false;
-    int noof_iterations = 0;
-    
-    while (!found_q0) { 
-      try {
-	GLWE::Choose_q(q0_l, modul);
-      } catch (bool b) {
-	q0_l++;
-	noof_iterations++;
-	continue;
-      }
-      found_q0 = true;
-    }
-    std::cout << "Found q0 of size " << q0_l << " after " << noof_iterations << " iterations " << std::endl;
+    // inifinite cycle inside: interrupt manually
+    bool found_noise_bound = false;
+    int x, y, q0, mu, q0_l, mu_l;
+    static int x0 = 0, y0 = 0;
+    ZZ max_noise = ZZ::zero();
+    q0_l = NumBits(modul) + 1;// * 2; // Why do I did |* 2 here???
     mu_l = NumBits(modul);
+    if (justPrint) std::cout << "q0_l = " << q0_l << std::endl;
+    //    x0 = 22, y0 = 22;
+    std::vector<int> modules(L + 1);
+    ZZ B_desired = ZZ(INIT_VAL, 1024);
+    
     for (y = y0; ; y++) {
-      mu = y + mu_l;
-      long q0_temp = q0_l;
-      long mu_temp = mu;
-      
-      for (int i = 0; i <= L; i++) {
-	while (std::find(brokenModules.begin(), brokenModules.end(), q0_temp) != brokenModules.end()) {
-	  q0_temp++;
-	}
-
-	bool err_setup = true;
-	while (err_setup) {
-	  try {
-	    params[i] = E.Setup(100, q0_temp, type, modul); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
-	  } catch (bool b) {
-	    brokenModules.push_back(q0_temp);
-	    continue;
+      //      std::cout << y << std::endl;
+      for (y == y0 ? x = x0 : x = 0; x <= y; x++) {
+	//	std::cout << "  " << x << std::endl;
+	mu = x + mu_l;
+	q0 = y - x + q0_l;
+	int q = q0;
+	for (int i = 0; i <= L; i++) {
+	  bool modul_found = false;
+	  while (!modul_found) {
+	    if (std::find(brokenModules.begin(), brokenModules.end(), q) != brokenModules.end()) {
+	      q++;
+	    } else {
+	      try {
+		GLWE::Choose_q(q, modul);
+		modules[i] = q;
+		modul_found = true;
+	      } catch (bool t) {
+		brokenModules.push_back(q);
+		q++;
+	      }
+	    }
 	  }
-	  err_setup = false;
+	  q += mu;
 	}
-	q0_temp += mu;
-      }
-      ZZ noise_bound;
-      noise_bound = Choose_Noise_Bound(modul, params);
+	//	for (int nd = 2; nd < (q0 + L * mu - 1000) * 100; nd++)
+	//	std::cout << "(" << q0 << ", " << mu << "), (" << x << ", " << y << ")" << std::endl;
 
-      if (noise_bound > 0) {
+	for (int i = 0; i <= L; i++) {
+	  params[i] = E.Setup(100, modules[i], type, modul); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
+	}
+
+	ZZ Initial_noise = 1 + modul * params[0].d * (2 * params[0].n + 1) * NumBits(params[L].q) * B_desired;
+	if (Initial_noise * 2 > params[0].q) {
+	  continue;
+	}
+
+	ZZ noise_bound;
+	noise_bound = Choose_Noise_Bound(modul, params);
+
 	if (noise_bound > B_desired) {
-	  std::cout << "y = ("  << y << ")" << std::endl;
+	  found_noise_bound = true;
+	  std::cout << "(x, y) = (" << x << ", " << y << ")" << std::endl;
 	  std::cout << "Theoretical upper noise bound = [" <<  noise_bound << "]" << std::endl;
-	  std::cout << "Parameters found, q0 = " << q0_l << ", mu = " << mu << std::endl << std::endl;	
-	  for (int i = 0; i <= L; i++) {
-	    std::cout << "|q" << i << "| = " << NumBits(params[i].q) << " ";
-	  }
-	  std::cout << std::endl;
+	  std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl << std::endl;
+	  
+	  x0 = x;
 	  y0 = y;
-	  (*r_noise) = noise_bound;
-	  (*r_q0) = q0_l;
-	  (*r_mu) = mu;
+
+	  B = B_desired;
 	  return;
 	}
       }
@@ -316,31 +315,22 @@ class FHE {
   FHE_Params Setup(int lambda, int L, GLWE_Type b, ZZ p = ZZ(INIT_VAL, 2)) {
     my_L = L;
     // initial modul length
-    int d = E.Choose_d(lambda, 0, b);
-    int n = E.Choose_n(lambda, 0, b);
-
-    int q_size = 14;
-    int mu = 32;
-    ZZ B = ZZ(INIT_VAL, 1100);
     clock_t start = clock();
-    q_size = NumBits(p);
-    mu = NumBits(p);
+    ZZ B;
+
     std::cout << "|p| = " << NumBits(p) << std::endl;
-    B = 1024;
+
     std::vector<GLWE_Params> params(L + 1);
-    Print_Possible_Parameters(L, b, p, params, false, &q_size, &mu, &B);
+    Print_Possible_Parameters(L, b, p, params, B, false);
 
     std::cout << "Time for finding parameters = " << (clock() - start) / (double)CLOCKS_PER_SEC << std::endl;
-    start = clock();
-
+    
     for (int i = 0; i <= L; i++) {
-      std::cout << "q" << i << " = " << params[i].q << std::endl;
-    }
-
-    for (int i = 0; i < L; i++) {
+      std::cout << "|q" << i << "| = " << NumBits(params[i].q) << " ";
       params[i].d = params[L].d;
       params[L - i].B = B;
     }
+    std::cout << std::endl;
     // print noise bounds parameters and ASSERT if the interval is empty
     // Choose_Noise_Bound(ZZ(INIT_VAL, p), params);
 
@@ -364,6 +354,7 @@ class FHE {
       if (i != my_L) {
 	R_Ring_Vector s_i_prime = sk[i + 1].Tensor_Product(sk[i + 1]); // from R_{q_j}^{(n_j + 1, 2)} space, i.e. there are n_j * (n_j + 1) element
 	// assert(s_i_prime.Get_Dimension() == (sk[i+1].Get_Dimension() * (sk[i+1].Get_Dimension() + 1)) / 2);
+
 	R_Ring_Vector s_i_prime_prime;
 	Bit_Decomposition(s_i_prime, params[i + 1].q, s_i_prime_prime);
 	// assert(s_i_prime_prime.Get_Dimension() == s_i_prime.Get_Dimension() * NumBits(params[i + 1].q));
