@@ -246,7 +246,7 @@ class FHE {
     if (justPrint) std::cout << "q0_l = " << q0_l << std::endl;
     //    x0 = 22, y0 = 22;
     std::vector<int> modules(L + 1);
-    ZZ B_desired = ZZ(INIT_VAL, 1024);
+    ZZ B_desired = ZZ(INIT_VAL, 10);
     
     for (y = y0; ; y++) {
       //      std::cout << y << std::endl;

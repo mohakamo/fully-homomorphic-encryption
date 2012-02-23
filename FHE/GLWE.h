@@ -4,6 +4,7 @@
  */
 #ifndef _GLWE_H_
 #define _GLWE_H_
+#include "NormDistr.h"
 #include "R_Ring_Matrix.h"
 #include <math.h>
 #include <map>
@@ -118,7 +119,8 @@ class GLWE {
   // just return the uniform noise that is bounded by B (although should be gaussian - not uniform for security)
   static R_Ring_Number Noise(ZZ q, int d, ZZ B, ZZ p) {
     assert(B >= ZZ(INIT_VAL, 2));
-    R_Ring_Number res = R_Ring_Number::Uniform_Rand(B, d);
+    //    R_Ring_Number res = R_Ring_Number::Uniform_Rand(B, d);
+    R_Ring_Number res = NormDistr::sample(q, d, 8);
     //    R_Ring_Number res = R_Ring_Number::Uniform_Rand(ZZ(INIT_VAL, 2), d);
     res.Increase_Modul(q);
     //    R_Ring_Number res(q, d);

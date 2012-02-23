@@ -170,6 +170,13 @@ public:
 int main (int argc, char * const argv[]) {
   std::cout << std::endl;
 
+  std::cout << "Norm distr samples: ";
+
+  for (int i = 0; i < 20; i++) {
+    std::cout << NormDistr::sample_standard(0, 8) << " ";
+  }
+  std::cout << std::endl;
+
   /*
   Test tests;
   tests.Run_Tests();
