@@ -147,6 +147,7 @@ class FHE {
 	result.Get_d() != x.Get_d() ||
 	result.Get_q() != q) {
       result = R_Ring_Vector(q, x.Get_d(), noof_vectors * x.Get_Dimension());
+      assert(result.Get_q() == q);
     }
     int index;
     
@@ -165,12 +166,18 @@ class FHE {
     int N = s1.Get_Dimension() * NumBits(s2.Get_q());
     int Old_N = params2.N;
     params2.N = N;
+    assert(s2.Get_q() == params2.q);
     R_Ring_Matrix A = E.Public_Key_Gen(params2, s2);
+    assert(A.Get_q() == s2.Get_q());
     params2.N = Old_N;
-    // assert(A.Get_Noof_Columns() == s2.Get_Dimension());
-    // assert(A.Get_Noof_Rows() == N);
+    assert(A.Get_Noof_Columns() == s2.Get_Dimension());
+    assert(A.Get_Noof_Rows() == N);
     R_Ring_Vector column;
     Powersof2(s1, s2.Get_q(), column);
+    if (column.Get_q() != s2.Get_q()) {
+      std::cout << column.Get_q() << " " << s2.Get_q() << std::endl;
+    }
+    assert(column.Get_q() == s2.Get_q());
     return A.Add_To_Column(0, column);
   }
   
@@ -331,6 +338,11 @@ class FHE {
       params[L - i].B = B;
     }
     std::cout << std::endl;
+    for (int i = 0; i <= L; i++) {
+      std::cout << "q" << i << " = " << params[i].q << " ";
+    }
+    std::cout << std::endl;
+
     // print noise bounds parameters and ASSERT if the interval is empty
     // Choose_Noise_Bound(ZZ(INIT_VAL, p), params);
 

@@ -18,7 +18,7 @@ fhe : $(objects)
 	$(CC) $(CXXFLAGS) -o fhe $(objects) $(LIBS)
 
 
-main.o : $(arithmetic_objects) Pair.h GLWE.h FHE.h LSS.h NTL/ZZ.h main.cpp Tests.h
+main.o : $(arithmetic_objects) Pair.h GLWE.h FHE.h LSS.h NTL/ZZ.h main.cpp Tests.h Tests_ZZX_Ring_Number.h
 	$(CC) $(CXXFLAGS) -c main.cpp
 R_Ring_Vector.o : $(arithmetic_objects) NTL/ZZ.h R_Ring_Vector.cpp
 	$(CC) $(CXXFLAGS) -c R_Ring_Vector.cpp

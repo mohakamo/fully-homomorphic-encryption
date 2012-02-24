@@ -225,11 +225,14 @@ public:
   }
   
   R_Ring_Vector Encrypt(GLWE_Params &params, R_Ring_Matrix &pk, R_Ring_Number &m, R_Ring_Vector *r_for_debug = NULL) const {
+    if (m.Get_q() != params.p) {
+      std::cout << m.Get_q() << " " << params.p << std::endl;
+    }
     assert(m.Get_q() == params.p);
     
     // m_prime
     R_Ring_Vector m_prime(params.q, params.d, params.n + 1);
-    m_prime[0] = R_Ring_Number(params.q, params.d, m.Get_vec());
+    m_prime[0] = R_Ring_Number(params.q, params.d, m.vec);
     for (int i = 1; i < m_prime.Get_Dimension(); i++) {
       m_prime[i] = 0;
     }
@@ -237,7 +240,7 @@ public:
     // r
     R_Ring_Vector r(params.q, params.d, params.N);
     for (int i = 0; i < r.Get_Dimension(); i++) {
-      r[i] = R_Ring_Number(params.q, params.d, R_Ring_Number::Uniform_Rand(ZZ(INIT_VAL, 2), params.d).Get_vec());
+      r[i] = R_Ring_Number(params.q, params.d, R_Ring_Number::Uniform_Rand(ZZ(INIT_VAL, 2), params.d).vec);
     }
 
     

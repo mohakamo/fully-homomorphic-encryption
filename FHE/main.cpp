@@ -1,6 +1,7 @@
 #include "FHE.h"
 #include "LSS.h"
 #include "Tests.h"
+#include "Tests_ZZX_Ring_Number.h"
 #include <iostream>
 #include <time.h>
 
@@ -176,9 +177,14 @@ int main (int argc, char * const argv[]) {
     std::cout << NormDistr::sample_standard(0, 8) << " ";
   }
   std::cout << std::endl;
-
   /*
   Test tests;
+  tests.Run_Tests();
+  return 0;
+  */
+
+  /*
+  Tests_ZZX_Ring_Number tests;
   tests.Run_Tests();
   return 0;
   */
