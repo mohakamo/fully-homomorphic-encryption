@@ -13,7 +13,7 @@ class R_Ring_Vector;
 
 class R_Ring_Matrix {
   R_Ring_Number *matrix;
-  int noof_columns, noof_rows;
+  long long noof_columns, noof_rows;
   
 public:
   
@@ -29,13 +29,13 @@ public:
     matrix = NULL;
   }
   
-  R_Ring_Matrix(ZZ q, int d, const R_Ring_Number *matrix, int noof_rows, int noof_columns) {
+  R_Ring_Matrix(ZZ q, int d, const R_Ring_Number *matrix, long long noof_rows, long long noof_columns) {
     matrix = NULL;
     Initialize(q, d, noof_rows, noof_columns);
     memcpy(this->matrix, matrix, sizeof(R_Ring_Number) * noof_columns * noof_rows);
   }
   
-  R_Ring_Matrix(ZZ q, int d, int noof_rows, int noof_columns) {
+  R_Ring_Matrix(ZZ q, int d, long long noof_rows, long long noof_columns) {
     matrix = NULL;
     Initialize(q, d, noof_rows, noof_columns);
   }
@@ -43,7 +43,7 @@ public:
   R_Ring_Matrix(const R_Ring_Vector &v) {
     matrix = NULL;
     Initialize(v.Get_q(), v.Get_d(), v.Get_Dimension(), 1);
-    for (int i = 0; i < v.Get_Dimension(); i++) {
+    for (long long i = 0; i < v.Get_Dimension(); i++) {
       matrix[i] = v[i];
     }
   }
@@ -55,7 +55,7 @@ public:
   }
 
  R_Ring_Matrix& operator =(const R_Ring_Matrix &m) {
-    int dimension = m.noof_rows * m.noof_columns;
+    long long dimension = m.noof_rows * m.noof_columns;
     
     if (noof_rows != m.noof_rows || noof_columns != m.noof_columns) {
       if (matrix != NULL) {
@@ -66,11 +66,11 @@ public:
       noof_columns = m.noof_columns;
       noof_rows = m.noof_rows;
     }
-    for (int i = 0; i < dimension; i++) {
+    for (long long i = 0; i < dimension; i++) {
       matrix[i] = m.matrix[i];
     }
     if (dimension != 0 && Get_q() != m.Get_q()) {
-      for (int i = 0; i < dimension; i++) {
+      for (long long i = 0; i < dimension; i++) {
 	matrix[i].Change_Modul(m.Get_q());
       }
     }
@@ -78,15 +78,15 @@ public:
   }
   
   // Added for initialization during array allocation
-  void Initialize(ZZ q, int d, int _noof_rows, int _noof_columns) {
+  void Initialize(ZZ q, int d, long long _noof_rows, long long _noof_columns) {
     if (matrix != NULL) {
       delete [] matrix;
     }
     noof_rows = _noof_rows;
     noof_columns = _noof_columns;
-    int dimension = noof_rows * noof_columns;
+    long long dimension = noof_rows * noof_columns;
     matrix = new R_Ring_Number [dimension];
-    for (int i = 0; i < dimension; i++) {
+    for (long long i = 0; i < dimension; i++) {
       matrix[i].Initialize(q, d);
     }
   }
@@ -99,7 +99,7 @@ public:
     return &matrix[row_index * noof_columns];
     }*/
   
-  R_Ring_Number& operator() (int row_number, int column_number) const {
+  R_Ring_Number& operator() (long long row_number, long long column_number) const {
     return matrix[row_number * noof_columns + column_number];
   }
 
@@ -111,8 +111,8 @@ public:
   R_Ring_Matrix Get_Transpose() const {
     R_Ring_Matrix res_m (Get_q(), Get_d(), noof_columns, noof_rows);
     
-    for (int r = 0; r < noof_rows; r++) {
-      for (int c = 0; c < noof_columns; c++) {
+    for (long long r = 0; r < noof_rows; r++) {
+      for (long long c = 0; c < noof_columns; c++) {
 	res_m(c, r) = (*this)(r, c);
       }
     }
@@ -125,7 +125,7 @@ public:
     
     R_Ring_Matrix res_m(Get_q(), Get_d(), noof_rows, noof_columns);
     
-    for (int i = 0; i < noof_columns * noof_rows; i++) {
+    for (long long i = 0; i < noof_columns * noof_rows; i++) {
       res_m.matrix[i] = matrix[i] + m.matrix[i];
     }
     return res_m;
@@ -134,7 +134,7 @@ public:
   R_Ring_Matrix operator -() const {
     R_Ring_Matrix res_m(Get_q(), Get_d(), noof_rows, noof_columns);
     
-    for (int i = 0; i < noof_rows * noof_columns; i++) {
+    for (long long i = 0; i < noof_rows * noof_columns; i++) {
       res_m.matrix[i] = -matrix[i];
     }
     return res_m;
@@ -144,8 +144,8 @@ public:
     // assert(noof_columns == v.Get_Dimension());
     R_Ring_Vector res_v(Get_q(), Get_d(), noof_rows);
     
-    for (int i = 0; i < noof_rows; i++) {
-      for (int j = 0; j < noof_columns; j++) {
+    for (long long i = 0; i < noof_rows; i++) {
+      for (long long j = 0; j < noof_columns; j++) {
 	res_v[i] += (*this)(i, j) * v[j];
       }
     }
@@ -157,10 +157,10 @@ public:
     R_Ring_Matrix res_m(Get_q(), Get_d(), noof_rows, m.noof_columns);
     R_Ring_Number res(Get_q(), Get_d());
 	
-    for (int i = 0; i < noof_rows; i++) {
-      for (int j = 0; j < m.noof_columns; j++) {
+    for (long long i = 0; i < noof_rows; i++) {
+      for (long long j = 0; j < m.noof_columns; j++) {
 	res = 0;
-	for (int k = 0; k < noof_columns; k++) {
+	for (long long k = 0; k < noof_columns; k++) {
 	  res += (*this)(i, k) * m(k, j);
 	}
 	res_m(i, j) = res;
@@ -169,25 +169,25 @@ public:
     return res_m;
   }
   
-  void Set_Block(int r, int c, const R_Ring_Matrix &m) {
+  void Set_Block(long long r, long long c, const R_Ring_Matrix &m) {
     // assert(noof_rows == r + m.noof_rows && noof_columns == c + m. noof_columns);
-    for (int i = r; i < noof_rows; i++) {
-      for (int j = c; j < noof_columns; j++) {
+    for (long long i = r; i < noof_rows; i++) {
+      for (long long j = c; j < noof_columns; j++) {
 	matrix[i * noof_columns + j] = m.matrix[(i - r) * m.noof_columns + j - c];
       }
     }
   }
   
-  void Set_Column(int c, const R_Ring_Vector &r) {
+  void Set_Column(long long c, const R_Ring_Vector &r) {
     // assert(c >= 0 && c < noof_columns && noof_rows == r.Get_Dimension());
-    for (int i = 0; i < noof_rows; i++) {
+    for (long long i = 0; i < noof_rows; i++) {
       matrix[i * noof_columns + c] = r[i];
     }
   }
   
-  R_Ring_Matrix & Add_To_Column(int column_number, const R_Ring_Vector &r) {
+  R_Ring_Matrix & Add_To_Column(long long column_number, const R_Ring_Vector &r) {
     // assert(column_number >= 0 && column_number < noof_columns && noof_rows == r.Get_Dimension());
-    for (int i = 0; i < noof_rows; i++) {
+    for (long long i = 0; i < noof_rows; i++) {
       (*this)(i, column_number) += r[i];
     }
     return *this;
@@ -195,7 +195,7 @@ public:
 
   void Increase_Modul(ZZ new_q) {
     // assert(new_q >= Get_q());
-    for (int i = 0; i < noof_rows * noof_columns; i++) {
+    for (long long i = 0; i < noof_rows * noof_columns; i++) {
       matrix[i].Increase_Modul(new_q);
     }
   }
@@ -210,17 +210,17 @@ public:
     return matrix[0].Get_d();
   }
   
-  int Get_Noof_Rows(void) const {
+  long long Get_Noof_Rows(void) const {
     return noof_rows;
   }
   
-  int Get_Noof_Columns(void) const {
+  long long Get_Noof_Columns(void) const {
     return noof_columns;
   }
 
   void print(void) const {
-    for (int i = 0; i < noof_rows; i++) {
-      for (int j = 0; j < noof_columns; j++) {
+    for (long long i = 0; i < noof_rows; i++) {
+      for (long long j = 0; j < noof_columns; j++) {
 	matrix[i * noof_columns + j].print();
 	if (j + 1 < noof_columns) {
 	  std::cout << ", ";

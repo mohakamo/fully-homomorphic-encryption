@@ -1,6 +1,7 @@
 #include "FHE.h"
 #include "LSS.h"
 #include "Tests.h"
+#include "Timing.h"
 #include "Tests_ZZX_Ring_Number.h"
 #include <iostream>
 #include <time.h>
@@ -41,8 +42,6 @@ public:
     ZZ zz_bound = ZZ(INIT_VAL, bound);
     ZZ lower_bound_on_modul;
     lower_bound_on_modul = 2 * zz_dimension * zz_dimension * zz_bound * zz_bound * zz_bound + 1;
-    //    std::cout << "lower_bound_on_modul = " << lower_bound_on_modul << std::endl;
-    //    std::cout << "upper_bound_on_modul = " << 2 * lower_bound_on_modul << std::endl;
     ZZ upper_bound_on_modul;
     upper_bound_on_modul = 2 * lower_bound_on_modul; // by Bertrand's postulate we should find a prime in this range, otherwise something is going wrong....
     modul = lower_bound_on_modul;
@@ -53,7 +52,9 @@ public:
       std::cout << "Modul not found" << std::endl;
       exit(1);
     }
-    //std::cout << "Message modul chosen = " << modul << std::endl;
+    std::cout << "lower_bound_on_modul = " << lower_bound_on_modul << std::endl;
+    std::cout << "Message modul chosen = " << modul << std::endl;
+    std::cout << "upper_bound_on_modul = " << 2 * lower_bound_on_modul << std::endl;
     //    if (justPrintParams) {
     //      fhe.Print_Possible_Parameters(L, type, modul);
     //      return;
@@ -93,8 +94,8 @@ public:
     start = clock();
     R_Ring_Number mx(modul, params[0].d), my(modul, params[0].d);
     for (int j = 0; j < dimension; j++) {
-      mx = RandomBnd(ZZ(INIT_VAL, bound));// - (bound + 1) / 2;
-      my = RandomBnd(ZZ(INIT_VAL, bound));// - (bound + 1) / 2;
+      mx = RandomBnd(ZZ(INIT_VAL, 2 * bound + 1));// - (bound + 1) / 2;
+      my = RandomBnd(ZZ(INIT_VAL, 2 * bound + 1));// - (bound + 1) / 2;
       messages_x.push_back(mx);
       messages_y.push_back(my);
       c_x.push_back(fhe.Encrypt(params, &pk, messages_x[j]));
@@ -168,15 +169,24 @@ public:
   }  
 };
 
+class TempNumber{
+  ZZ q;
+  int d;
+  ZZX vec;
+public:
+  TempNumber() : q(), d(), vec() {}
+};
+
 int main (int argc, char * const argv[]) {
   std::cout << std::endl;
 
+  /*
   std::cout << "Norm distr samples: ";
-
   for (int i = 0; i < 20; i++) {
     std::cout << NormDistr::sample_standard(0, 8) << " ";
   }
   std::cout << std::endl;
+  */
   /*
   Test tests;
   tests.Run_Tests();
@@ -189,12 +199,38 @@ int main (int argc, char * const argv[]) {
   return 0;
   */
 
+
+  std::cout << "check new ";
+
+  long long nn = 371558400 * sizeof(R_Ring_Number);
+  
+  char *a = new char [nn];
+  delete [] a;
+  std::cout << " success";
+
+  std::cout << "\ncheck new 2 ";
+  long long n = 30963200;
+  R_Ring_Number *arr = new R_Ring_Number[n];
+  /*  for (long long i = 0; i < n; i++) {
+    arr[i].Initialize(to_ZZ(11), 512);
+  }
+  */
+
+  delete [] arr;
+  std::cout << " success\n";
+  return 0;
+
+  Timing_Operations timing;
+  timing.TimingOperations();
+  return 0;
+
   Timing_LSS timingLSS;
   const int max_dimension = 6; // till (20, 14) for dimension = 3, modul = 10, noise bound not found
-  int elements_modul[] = {3, 5, 7, 9, 11, 13};
+  int elements_modul[] = {1, 127, 2, 3, 4, 5, 6};
+
 
   for (int dimension = 2; dimension <= max_dimension; dimension++) {
-    for (int modul_i = 0; modul_i < 6; modul_i++) {
+    for (int modul_i = 0; modul_i < 1; modul_i++) {
       int modul = elements_modul[modul_i];
       timingLSS.Setup(dimension, modul, false);
       std::cout << "dimension = " << dimension << ", modul = " << modul << std::endl;

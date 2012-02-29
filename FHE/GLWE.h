@@ -81,13 +81,16 @@ class GLWE {
       
     ZZ n;
     n = (ZZ(INIT_VAL, 1) << mu) - 1;
-    while (n > (ZZ(INIT_VAL, 1) << (mu - 1))) {
-      if (ProbPrime(n) && n % r == 1) {
+    ZZ k0 = ((ZZ(INIT_VAL, 1) << mu) - 1) / r;
+    ZZ k1 = ((ZZ(INIT_VAL, 1) << (mu - 1))) / r;
+    for (ZZ k = k0; k > k1; k--) {
+      n = k * r + 1;
+      if (ProbPrime(n)) {
 	primes.insert(std::pair<int, ZZ>(mu, n));
 	return n;
       }
-      n--;
     }
+
     //    std::cout << "mu = " << mu << std::endl;
     //    std::cout << "r = " << r << std::endl;
     // did not find modul that is equal to 1 mod r
@@ -101,7 +104,7 @@ class GLWE {
       return 1;
     }
     // TODO: to be implemented, seems like a reasonable value for noise >= 2^10
-    return 8;
+    return 80;
   }
 
   static int Choose_n(int lambda, int mu, GLWE_Type b) {
@@ -109,7 +112,7 @@ class GLWE {
       return 1;
     }
     // TODO: to be implemented, seems like a reasonable value for noise >= 2^10
-    return 8;
+    return 80;
   }
  private:
   static int Choose_N(int n, ZZ q) {
@@ -131,10 +134,15 @@ class GLWE {
     return ZZ(INIT_VAL, 2); // this value is not used for FHE, the noise is being chosen manually afterwards
   }
 public:	
-  GLWE_Params Setup(int lambda, int mu, GLWE_Type b, ZZ p = ZZ(INIT_VAL, 2)) const {
+  GLWE_Params Setup(int lambda, int mu, GLWE_Type b, ZZ p = ZZ(INIT_VAL, 2), int n_opt = -1) const {
     ZZ q;
     q = Choose_q(mu, p);
-    int n = Choose_n(lambda, mu, b);
+    int n;
+    if (n_opt != -1) {
+      n = n_opt;
+    } else {
+      n = Choose_n(lambda, mu, b);
+    }
     int N = Choose_N(n, q);
     int d = Choose_d(lambda, mu, b);
     ZZ B = Choose_B(q, d, N, p);
@@ -160,32 +168,41 @@ public:
        v
   ***/
   R_Ring_Matrix Public_Key_Gen(const GLWE_Params &params, const R_Ring_Vector &sk, R_Ring_Vector *ksi_noise_for_debug = NULL) const {
-    /*
     assert(params.q == sk.Get_q());
     // A_prime
+    std::cout << "Uniform distr gen" << std::endl;
+    std::cout << "N = " << params.N << std::endl;
+    std::cout << "sizeof(R_Ring_Number) = " << sizeof(R_Ring_Number) << std::endl;
+    std::cout << "matrix size = " << params.N * params.n * sizeof(R_Ring_Number) << std::endl;
     R_Ring_Matrix A_prime(params.q, params.d, params.N, params.n);
+    std::cout << "Uniform distr gen after init" << std::endl;
     for (int i = 0; i < A_prime.Get_Noof_Rows(); i++) {
       for (int j = 0; j < A_prime.Get_Noof_Columns(); j++) {
+	std::cout << "(" << i << ", " << j << ")" << std::endl;
 	A_prime(i, j) = R_Ring_Number::Uniform_Rand(params.q, params.d);
       }
     }
 
+    std::cout << "Ksi" << std::endl;
     R_Ring_Vector ksi_noise(params.q, params.d, params.N);
     for (int i = 0; i < params.N; i++) {
-      ksi_noise[i] = params.ksi();
+      ksi_noise[i] = params.ksi() * params.p;
     }
 
     R_Ring_Matrix pk(params.q, params.d, params.N, params.n + 1);
-    pk.Set_Column(0, A_prime * sk.Get_Sub_Vector(1, params.n) + ksi_noise * params.p);
+    clock_t t = clock();
+    std::cout << "set column...." << std::endl;
+    pk.Set_Column(0, A_prime * sk.Get_Sub_Vector(1, params.n) + ksi_noise);
+    std::cout << "set column = " << (clock() - t) / (double)CLOCKS_PER_SEC << std::endl;
     pk.Set_Block(0, 1, -A_prime);
 
     if (ksi_noise_for_debug != NULL) {
       (*ksi_noise_for_debug) = ksi_noise;
     }
-    */
     //    assert(sk.Get_Dimension() == params.n + 1);
     //    assert(s_prime.Get_Dimension() == params.n);
     //    assert(As.Get_Dimension() == params.N);
+    /*
     // Old version
     assert(params.q == sk.Get_q());
     // A_prime
@@ -220,11 +237,15 @@ public:
     if (ksi_noise_for_debug != NULL) {
       (*ksi_noise_for_debug) = ksi_noise;
     }
+*/
 
     return pk;
   }
   
-  R_Ring_Vector Encrypt(GLWE_Params &params, R_Ring_Matrix &pk, R_Ring_Number &m, R_Ring_Vector *r_for_debug = NULL) const {
+  R_Ring_Vector Encrypt(GLWE_Params &params, R_Ring_Matrix &pk, R_Ring_Number &m,
+			R_Ring_Vector *r_for_debug = NULL) const {
+    /*
+    // Old version
     if (m.Get_q() != params.p) {
       std::cout << m.Get_q() << " " << params.p << std::endl;
     }
@@ -247,6 +268,20 @@ public:
     R_Ring_Vector c(params.q, params.d, params.n + 1);
     R_Ring_Matrix pk_transpose = pk.Get_Transpose();
     
+    c = m_prime + (pk.Get_Transpose() * r);
+
+    if (r_for_debug != NULL) {
+      (*r_for_debug) = r;
+    }
+    return c;
+    */
+    // assert(m.Get_q() == params.p);
+    
+    R_Ring_Vector m_prime(params.q, params.d, params.n + 1);
+    m_prime[0] = R_Ring_Number(params.q, params.d, m.vec);
+
+    R_Ring_Vector r = R_Ring_Vector::Uniform_Rand(params.q, params.d, params.N, ZZ(INIT_VAL, 2));
+    R_Ring_Vector c(params.q, params.d, params.n + 1);
     c = m_prime + (pk.Get_Transpose() * r);
 
     if (r_for_debug != NULL) {

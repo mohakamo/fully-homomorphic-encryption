@@ -8,6 +8,7 @@ template<class T>
 void Sum_Up(std::vector<T> &x) { // summing up in a way to get logarithmic depth
   int size = x.size();
   
+  /*
   while (size > 1) {
     for (int i = 0; i < size / 2; i++) {
       x[i] = x[2 * i] + x[2 * i + 1];
@@ -16,6 +17,17 @@ void Sum_Up(std::vector<T> &x) { // summing up in a way to get logarithmic depth
       x[size / 2] = x[size - 1];
     }
     size /= 2;
+  }
+  */
+  int step = 1;
+
+  while (step < size) {
+    for (int i = 0; i < size; i += 2 * step) {
+      if (i + step < size) {
+	x[i] = x[i] + x[i + step]; // TODO: add operator +=
+      }
+    }
+    step *= 2;
   }
 }
 

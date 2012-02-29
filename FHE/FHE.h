@@ -166,18 +166,18 @@ class FHE {
     int N = s1.Get_Dimension() * NumBits(s2.Get_q());
     int Old_N = params2.N;
     params2.N = N;
-    assert(s2.Get_q() == params2.q);
+    //    assert(s2.Get_q() == params2.q);
     R_Ring_Matrix A = E.Public_Key_Gen(params2, s2);
-    assert(A.Get_q() == s2.Get_q());
+    //    assert(A.Get_q() == s2.Get_q());
     params2.N = Old_N;
-    assert(A.Get_Noof_Columns() == s2.Get_Dimension());
-    assert(A.Get_Noof_Rows() == N);
+    //    assert(A.Get_Noof_Columns() == s2.Get_Dimension());
+    //    assert(A.Get_Noof_Rows() == N);
     R_Ring_Vector column;
     Powersof2(s1, s2.Get_q(), column);
-    if (column.Get_q() != s2.Get_q()) {
+    /*    if (column.Get_q() != s2.Get_q()) {
       std::cout << column.Get_q() << " " << s2.Get_q() << std::endl;
-    }
-    assert(column.Get_q() == s2.Get_q());
+      } */
+    //    assert(column.Get_q() == s2.Get_q());
     return A.Add_To_Column(0, column);
   }
   
@@ -241,12 +241,12 @@ class FHE {
   int my_L;
  public:
   void Print_Possible_Parameters(int L, GLWE_Type type, ZZ modul, FHE_Params &params, ZZ &B,
-				 bool justPrint = true) {
+				 bool justPrint = true, int n = -1) {
     std::vector<int> brokenModules;
     // inifinite cycle inside: interrupt manually
     bool found_noise_bound = false;
     int x, y, q0, mu, q0_l, mu_l;
-    static int x0 = 0, y0 = 0;
+    /*static */int x0 = 0, y0 = 0;
     ZZ max_noise = ZZ::zero();
     q0_l = NumBits(modul) + 1;// * 2; // Why do I did |* 2 here???
     mu_l = NumBits(modul);
@@ -254,13 +254,25 @@ class FHE {
     //    x0 = 22, y0 = 22;
     std::vector<int> modules(L + 1);
     ZZ B_desired = ZZ(INIT_VAL, 10);
-    
-    for (y = y0; ; y++) {
+
+    //    std::cout << "Search for ladder " << std::endl;
+    //    std::cout << "qo_l = " << q0_l << " mu_l = " << mu_l << std::endl;
+    //    std::cout << "y = " << q0_l + L * mu_l << std::endl;
+
+    for (y = q0_l + L * mu_l; ; y++) {
+      //      std::cout << "KU!" << std::endl;
       //      std::cout << y << std::endl;
-      for (y == y0 ? x = x0 : x = 0; x <= y; x++) {
+      for (x = mu_l; L * x < y - q0_l; x++) {
+	//	std::cout << " " << x << std::endl;
+	mu = x;
+	q0 = y - L * x;
+	//	std::cout << " mu = " << mu << " q0 = " << q0 << std::endl;
+	//    for (y = y0; ; y++) {
+	//      std::cout << y << std::endl;
+	//      for (y == y0 ? x = x0 : x = 0; x <= y; x++) {
 	//	std::cout << "  " << x << std::endl;
-	mu = x + mu_l;
-	q0 = y - x + q0_l;
+	//	mu = x + mu_l;
+	//	q0 = y - x + q0_l;
 	int q = q0;
 	for (int i = 0; i <= L; i++) {
 	  bool modul_found = false;
@@ -284,7 +296,7 @@ class FHE {
 	//	std::cout << "(" << q0 << ", " << mu << "), (" << x << ", " << y << ")" << std::endl;
 
 	for (int i = 0; i <= L; i++) {
-	  params[i] = E.Setup(100, modules[i], type, modul); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
+	  params[i] = E.Setup(100, modules[i], type, modul, n); // modules q are increasing, so while doing noise cleaning we need to switch from bigger module to smaller, i.e. from j to j - 1
 	}
 
 	ZZ Initial_noise = 1 + modul * params[0].d * (2 * params[0].n + 1) * NumBits(params[L].q) * B_desired;
@@ -297,9 +309,9 @@ class FHE {
 
 	if (noise_bound > B_desired) {
 	  found_noise_bound = true;
-	  std::cout << "(x, y) = (" << x << ", " << y << ")" << std::endl;
-	  std::cout << "Theoretical upper noise bound = [" <<  noise_bound << "]" << std::endl;
-	  std::cout << "Parameters found, q0 = " << q0 << ", mu = " << mu << std::endl << std::endl;
+	  //	  std::cout << "(x, y) = (" << x << ", " << y << ")" << std::endl;
+	  //	  std::cout << "Theoretical upper noise bound = [" <<  noise_bound << "]" << std::endl;
+	  std::cout << "q0 = " << q0 << ", mu = " << mu << std::endl;
 	  
 	  x0 = x;
 	  y0 = y;
@@ -319,16 +331,16 @@ class FHE {
    * @param p                   module for message representation (should be coprime with all the modules in the ladder)
    * @return			set of parameters for each level of the circuit
    **/
-  FHE_Params Setup(int lambda, int L, GLWE_Type b, ZZ p = ZZ(INIT_VAL, 2)) {
+  FHE_Params Setup(int lambda, int L, GLWE_Type b, ZZ p = ZZ(INIT_VAL, 2), int n = -1) {
     my_L = L;
     // initial modul length
     clock_t start = clock();
     ZZ B;
 
-    std::cout << "|p| = " << NumBits(p) << std::endl;
+    //    std::cout << "|p| = " << NumBits(p) << std::endl;
 
     std::vector<GLWE_Params> params(L + 1);
-    Print_Possible_Parameters(L, b, p, params, B, false);
+    Print_Possible_Parameters(L, b, p, params, B, false, n);
 
     std::cout << "Time for finding parameters = " << (clock() - start) / (double)CLOCKS_PER_SEC << std::endl;
     
@@ -338,10 +350,12 @@ class FHE {
       params[L - i].B = B;
     }
     std::cout << std::endl;
+    /*
     for (int i = 0; i <= L; i++) {
       std::cout << "q" << i << " = " << params[i].q << " ";
     }
     std::cout << std::endl;
+    */
 
     // print noise bounds parameters and ASSERT if the interval is empty
     // Choose_Noise_Bound(ZZ(INIT_VAL, p), params);
@@ -358,19 +372,30 @@ class FHE {
     std::vector<R_Ring_Vector> sk(my_L + 1); // s_0, ..., s_L
     std::vector<R_Ring_Matrix> pk(my_L + 1 + my_L); // first L + 1 slots are devoted to A_0, ..., A_L and next L slots are devoted to tau_(1 -> 0), ..., tau_(L -> L - 1)
     for (int i = my_L; i >= 0; i--) {
+      std::cout << "level #" << i << std::endl;
+      clock_t t = clock();
       R_Ring_Vector s_i = E.Secret_Key_Gen(params[i]);
+      std::cout << "secret key = " << (clock() - t) / (double)CLOCKS_PER_SEC << std::endl;
 
       sk[i] = s_i;
+      t = clock();
       R_Ring_Matrix A_i = E.Public_Key_Gen(params[i], s_i);
+      std::cout << "public key = " << (clock() - t) / (double)CLOCKS_PER_SEC << std::endl;
       pk[i] = A_i;
       if (i != my_L) {
+	t = clock();
 	R_Ring_Vector s_i_prime = sk[i + 1].Tensor_Product(sk[i + 1]); // from R_{q_j}^{(n_j + 1, 2)} space, i.e. there are n_j * (n_j + 1) element
+	std::cout << "tensor = " << (clock() - t) / (double)CLOCKS_PER_SEC << std::endl;
 	// assert(s_i_prime.Get_Dimension() == (sk[i+1].Get_Dimension() * (sk[i+1].Get_Dimension() + 1)) / 2);
 
 	R_Ring_Vector s_i_prime_prime;
+	t = clock();
 	Bit_Decomposition(s_i_prime, params[i + 1].q, s_i_prime_prime);
+	std::cout << "bit decomp = " << (clock() - t) / (double)CLOCKS_PER_SEC << std::endl;
 	// assert(s_i_prime_prime.Get_Dimension() == s_i_prime.Get_Dimension() * NumBits(params[i + 1].q));
+	t = clock();
 	R_Ring_Matrix tau_i = Switch_Key_Gen(s_i_prime_prime, s_i, params[i]); // give the bigger modul
+	std::cout << "switch key gen = " << (clock() - t) / (double)CLOCKS_PER_SEC << std::endl;
 	// assert(tau_i.Get_Noof_Columns() == s_i.Get_Dimension());
 	// assert(s_i.Get_Dimension() == params[i].n + 1);
 	// assert(tau_i.Get_Noof_Rows() == s_i_prime_prime.Get_Dimension() * NumBits(params[i].q));
@@ -388,6 +413,13 @@ class FHE {
     return FHE_Cipher_Text(Pair<R_Ring_Vector, int> (E.Encrypt(params[my_L], (*pk)[my_L], m), my_L), pk, params[0].p, ThNoise);
   }
   
+  // level = myL - for usual encryption or smaller for unusual
+  FHE_Cipher_Text Encrypt_for_Level(FHE_Params &params, FHE_Public_Key_Type *pk, R_Ring_Number m, int level) {
+    ZZ ThNoise;
+    ThNoise = 1 + params[level].p * params[level].d * sqrt(params[level].d) * params[level].N * params[level].B;
+    return FHE_Cipher_Text(Pair<R_Ring_Vector, int> (E.Encrypt(params[level], (*pk)[level], m), level), pk, params[0].p, ThNoise);
+  }
+
   // For params should be a zero level of parameters generated by Setup, i.e. Setup(...)[0]
   FHE_Cipher_Text Encrypt(FHE_Params &params, FHE_Public_Key_Type *pk, ZZ m) {
     R_Ring_Number mp(params[0].p, params[0].d);

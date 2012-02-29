@@ -22,9 +22,7 @@ class R_Ring_Number {
 public:
   ZZX vec;
 
-  R_Ring_Number() {
-    q = d = 0;
-  }
+  R_Ring_Number() : q(), d(), vec() {}
   
   R_Ring_Number(ZZ q_, int d_) {
     d = d_;
