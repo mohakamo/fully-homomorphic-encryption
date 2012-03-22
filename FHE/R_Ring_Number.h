@@ -12,56 +12,55 @@
 #include <math.h>
 #include "NTL/ZZ.h"
 #include "NTL/ZZX.h"
+#include "defs.h"
 
 NTL_CLIENT
 
 class R_Ring_Number {
   ZZ q;
-  int d;
 
 public:
   ZZX vec;
 
-  R_Ring_Number() : q(), d(), vec() {}
+  R_Ring_Number() : q(), vec() {}
   
   R_Ring_Number(ZZ q_, int d_) {
-    d = d_;
+    assert(Ring_Number_d != 0);
     q = q_;
-    vec.SetMaxLength(2 * d);
-    vec.rep.SetLength(d);
+    vec.SetMaxLength(2 * Ring_Number_d);
+    vec.rep.SetLength(Ring_Number_d);
   }
   
   void Initialize(ZZ q_, int d_) {
-    d = d_;
     q = q_;
-    vec.SetMaxLength(2 * d);
-    vec.rep.SetLength(d);
+    vec.SetMaxLength(2 * Ring_Number_d);
+    vec.rep.SetLength(Ring_Number_d);
   }
 
   R_Ring_Number(ZZ q_, int d_, ZZ array[]) {
+    assert(Ring_Number_d != 0);
     q = q_;
-    d = d_;
     vec_ZZ v;
-    v.SetLength(d);
-    for (int i = 0; i < d; i++) {
+    v.SetLength(Ring_Number_d);
+    for (int i = 0; i < Ring_Number_d; i++) {
       v[i] = Reduce(array[i]);
     }
     vec = to_ZZX(v);
     vec.normalize();
-    vec.SetMaxLength(2 * d);
+    vec.SetMaxLength(2 * Ring_Number_d);
   }
   
   R_Ring_Number(ZZ q_, int d_, ZZX v_vec) {
+    assert(Ring_Number_d != 0);
     q = q_;
-    d = d_;
     vec = v_vec;
     Reduce();
     vec.normalize();
   }
 
   R_Ring_Number(const R_Ring_Number &v) {
+    assert(Ring_Number_d != 0);
     q = v.q;
-    d = v.d;
     vec = v.vec;
     vec.normalize();
   }
@@ -81,7 +80,7 @@ public:
   }
 
   ZZX& Fast_Reduce(ZZX &v) const {
-    for (int i = 0; i < d && i < v.rep.length(); i++) {
+    for (int i = 0; i < Ring_Number_d && i < v.rep.length(); i++) {
       v.rep[i] = Fast_Reduce(v.rep[i]);
     }
     v.normalize();
@@ -117,7 +116,7 @@ public:
   }
 
   ZZX& Reduce(ZZX &v) const {
-    for (int i = 0; i < d && i < v.rep.length(); i++) {
+    for (int i = 0; i < Ring_Number_d && i < v.rep.length(); i++) {
       v.rep[i] = Reduce(v.rep[i], q);
     }
     v.normalize();
@@ -129,26 +128,36 @@ public:
   }
 
   const R_Ring_Number operator -() const {
-    return R_Ring_Number(q, d, -vec);
+    return R_Ring_Number(q, Ring_Number_d, -vec);
   }
   
   const R_Ring_Number operator +(const R_Ring_Number &v) const {
-    assert(q == v.q && d == v.d);
+    if (q != v.q) {
+      std::cout << "q = " << q << std::endl;
+      std::cout << "v.q = " << v.q << std::endl;
+      assert(q == v.q);
+    }
     ZZX res = vec + v.vec;
-    return R_Ring_Number(q, d, Fast_Reduce(res));
+    return R_Ring_Number(q, Ring_Number_d, Fast_Reduce(res));
+  }
+
+  const R_Ring_Number operator +(const ZZ &v) const {
+    R_Ring_Number res(q, Ring_Number_d);
+    res = v;
+    return (*this) + res;
   }
 
   const R_Ring_Number operator -(const R_Ring_Number &v) const {
-    assert(q == v.q && d == v.d);
+    assert(q == v.q);
     ZZX res = vec - v.vec;
-    return R_Ring_Number(q, d, Fast_Reduce(res));
+    return R_Ring_Number(q, Ring_Number_d, Fast_Reduce(res));
   }
   
   R_Ring_Number& operator +=(const R_Ring_Number &v) {
-    if (d != v.d || q != v.q) {
-      std::cout << d << " " << v.d << " " << q << " " << v.q << std::endl;
+    if (q != v.q) {
+      std::cout << q << " " << v.q << std::endl;
     }
-    assert(d == v.d && q == v.q);
+    assert(q == v.q);
     vec += v.vec;
     Reduce();
 
@@ -159,16 +168,15 @@ public:
     if (q == 0) {
       q = v.q;
     }
-    d = v.d;
     vec = v.vec;
 
     return *this;
   }
   
   R_Ring_Number& operator =(ZZ n) {
-    assert(d != 0 && q > 0);
+    assert(Ring_Number_d != 0 && q > 0);
     clear(vec);
-    vec.rep.SetLength(d);
+    vec.rep.SetLength(Ring_Number_d);
     vec.rep[0] = Reduce(n, q);
     vec.normalize();
 
@@ -179,28 +187,36 @@ public:
     return *this = to_ZZ(n);
   }
 
+  R_Ring_Number operator /(ZZ constant) const {
+    ZZX res = vec;
+    for (int i = 0; i < res.rep.length(); i++) {
+      res.rep[i] = res.rep[i] / constant;
+    }
+    return R_Ring_Number(q, Ring_Number_d, Reduce(res));
+  }
+
   R_Ring_Number operator *(ZZ constant) const {
     ZZX res = vec * constant;
-    return R_Ring_Number(q, d, Reduce(res));
+    return R_Ring_Number(q, Ring_Number_d, Reduce(res));
   }
   
   R_Ring_Number operator *(const R_Ring_Number &v) const {
     ZZX result = vec * v.vec;
     
     // reduction modulo x^d + 1
-    for (int i = d - 1; i >= 0; i--) {
-      if (i < result.rep.length() && i + d < result.rep.length()) {
-	result.rep[i] -= result.rep[i + d];
-	result.rep[i + d] = 0;
+    for (int i = Ring_Number_d - 1; i >= 0; i--) {
+      if (i < result.rep.length() && i + Ring_Number_d < result.rep.length()) {
+	result.rep[i] -= result.rep[i + Ring_Number_d];
+	result.rep[i + Ring_Number_d] = 0;
       }
     }
 
-    return R_Ring_Number(q, d, Reduce(result));
+    return R_Ring_Number(q, Ring_Number_d, Reduce(result));
   }
   
 
   bool operator ==(const R_Ring_Number &r) const {
-    return (d == r.d && vec == r.vec);
+    return (vec == r.vec);
   }
 
   bool operator !=(const R_Ring_Number &r) const {
@@ -219,7 +235,7 @@ public:
   }
   
   R_Ring_Number Clamp(ZZ modul) {
-    for (int i = 0; i < d && i < vec.rep.length(); i++) {
+    for (int i = 0; i < Ring_Number_d && i < vec.rep.length(); i++) {
       vec.rep[i] = Clamp(vec.rep[i], modul);
     }
     vec.normalize();
@@ -261,8 +277,8 @@ public:
     }
     // assert(r == 2); // for simplicity, in future should be // assert(r < p)
     //    long double fraq = (p - 1) / (long double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
-    R_Ring_Number res_v(p, d);
-    for (int i = 0; i < d && i < vec.rep.length(); i++) {
+    R_Ring_Number res_v(p, Ring_Number_d);
+    for (int i = 0; i < Ring_Number_d && i < vec.rep.length(); i++) {
       ZZ desired_module = Clamp(vec.rep[i], r);
       ZZ tmp = (vec.rep[i] * (p - 1)) / (q - 1);
       ZZ value[] = {tmp, tmp + ((tmp > 0) ? -1 : 1), tmp + ((tmp > 0) ? 1 : -1), tmp + 2, tmp - 2}; // TODO: think about better approach
@@ -292,8 +308,8 @@ public:
       assert(p % r == 1 && q % r == 1);
     }
     //    double fraq = (p - 1) / (double)(q - 1); // (q - 1) / 2 should become (p - 1) / 2
-    R_Ring_Number res_v(p, d);
-    for (int i = 0; i < d && i < vec.rep.length(); i++) {
+    R_Ring_Number res_v(p, Ring_Number_d);
+    for (int i = 0; i < Ring_Number_d && i < vec.rep.length(); i++) {
       ZZ desired_module = Clamp(vec.rep[i], r);
       ZZ tmp_d = (vec.rep[i] * (p - 1)) / (q - 1);
       ZZ tmp = tmp_d;
@@ -347,9 +363,9 @@ public:
     } else {
       bound = q;
     }
-    R_Ring_Number r(q, d);
+    R_Ring_Number r(q, Ring_Number_d);
     ZZ sub_entr = (bound % 2 == 0) ? (bound - 2) / 2 : (bound - 1) / 2;
-    for (int i = 0; i < d; i++) {
+    for (int i = 0; i < Ring_Number_d; i++) {
       r.vec.rep[i] = RandomBnd(bound) - sub_entr;
     }
     r.vec.normalize();
@@ -357,7 +373,7 @@ public:
   }
   
   int Get_d(void) const {
-    return d;
+    return Ring_Number_d;
   }
   
   ZZ Get_q(void) const {
@@ -372,7 +388,7 @@ public:
   ZZ Get_Norm(void) const {
     ZZ result;
     result = 0;
-    for (int i = 0; i < d; i++) {
+    for (int i = 0; i < Ring_Number_d; i++) {
       result += abs(vec.rep[i]);
     }
     return result;
@@ -383,9 +399,6 @@ public:
   }
 };
 
-/*ostream& operator<<(ostream& s, const R_Ring_Number& a) {
-  s << a.vec;
-  return s;
-  }*/
+ostream& operator<<(ostream& s, const R_Ring_Number& a);
 
 #endif /* _R_RING_NUMBER_H_ */

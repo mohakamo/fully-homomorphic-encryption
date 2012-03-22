@@ -1,4 +1,4 @@
-#ifndef _NORMDISTR_H
+#ifndef _NORMDISTR_H_
 #define _NORMDISTR_H_
 
 #include "R_Ring_Vector.h"
@@ -38,7 +38,11 @@ class NormDistr {
     for (int i = 0; i < d; i++) {
       res[i] = sample_standard(0, deviation);
       //      std::cout << "res[" << i << "] = " << res[i] << std::endl;
-      assert(res[i] < q);
+      if (res[i] >= q) {
+	res[i] = q - 1;
+	//	std::cout << "ALERT! :" << res[i] << " >= " << q << std::endl;
+	//	assert(res[i] < q);
+      }
     }
     return res;
   }

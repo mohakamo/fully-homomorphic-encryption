@@ -1,6 +1,9 @@
 #include "R_Ring_Vector.h"
 #include "R_Ring_Matrix.h"
 
+int Ring_Number_d = 0;
+ZZ Ring_Number_q[10];
+
 R_Ring_Matrix R_Ring_Vector::Transpose() const {
   R_Ring_Matrix res_m(Get_q(), Get_d(), 1, Get_Dimension());
 

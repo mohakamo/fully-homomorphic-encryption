@@ -104,7 +104,7 @@ public:
   }
 
   R_Ring_Vector Get_Vector() const {
-    // assert(noof_rows == 1);
+    assert(noof_rows == 1);
     return R_Ring_Vector(noof_columns, matrix);
   }
   
@@ -121,7 +121,7 @@ public:
   }
      
   R_Ring_Matrix operator +(const R_Ring_Matrix &m) const {
-    // assert(noof_rows == m.noof_rows && noof_columns == m.noof_columns);
+    assert(noof_rows == m.noof_rows && noof_columns == m.noof_columns);
     
     R_Ring_Matrix res_m(Get_q(), Get_d(), noof_rows, noof_columns);
     
@@ -141,7 +141,7 @@ public:
   }
   
   R_Ring_Vector operator *(const R_Ring_Vector &v) const {
-    // assert(noof_columns == v.Get_Dimension());
+    assert(noof_columns == v.Get_Dimension());
     R_Ring_Vector res_v(Get_q(), Get_d(), noof_rows);
     
     for (long long i = 0; i < noof_rows; i++) {
@@ -153,7 +153,7 @@ public:
   }
   
   R_Ring_Matrix operator *(const R_Ring_Matrix &m) const {
-    // assert(noof_columns == m.noof_rows);
+    assert(noof_columns == m.noof_rows);
     R_Ring_Matrix res_m(Get_q(), Get_d(), noof_rows, m.noof_columns);
     R_Ring_Number res(Get_q(), Get_d());
 	
@@ -170,7 +170,7 @@ public:
   }
   
   void Set_Block(long long r, long long c, const R_Ring_Matrix &m) {
-    // assert(noof_rows == r + m.noof_rows && noof_columns == c + m. noof_columns);
+    assert(noof_rows == r + m.noof_rows && noof_columns == c + m. noof_columns);
     for (long long i = r; i < noof_rows; i++) {
       for (long long j = c; j < noof_columns; j++) {
 	matrix[i * noof_columns + j] = m.matrix[(i - r) * m.noof_columns + j - c];
@@ -179,14 +179,14 @@ public:
   }
   
   void Set_Column(long long c, const R_Ring_Vector &r) {
-    // assert(c >= 0 && c < noof_columns && noof_rows == r.Get_Dimension());
+    assert(c >= 0 && c < noof_columns && noof_rows == r.Get_Dimension());
     for (long long i = 0; i < noof_rows; i++) {
       matrix[i * noof_columns + c] = r[i];
     }
   }
   
   R_Ring_Matrix & Add_To_Column(long long column_number, const R_Ring_Vector &r) {
-    // assert(column_number >= 0 && column_number < noof_columns && noof_rows == r.Get_Dimension());
+    assert(column_number >= 0 && column_number < noof_columns && noof_rows == r.Get_Dimension());
     for (long long i = 0; i < noof_rows; i++) {
       (*this)(i, column_number) += r[i];
     }
@@ -200,13 +200,23 @@ public:
     }
   }
   
+  static R_Ring_Matrix Uniform_Rand(ZZ q, int d, long long noof_rows,
+				    long long noof_columns,
+				    ZZ bound = ZZ(INIT_VAL, -1)) {
+    R_Ring_Matrix res(q, d, noof_rows, noof_columns);
+    for (long long i = 0; i < noof_rows * noof_columns; i++) {
+      res.matrix[i] = R_Ring_Number::Uniform_Rand(q, d, bound);
+    }
+    return res;
+  }
+
   ZZ Get_q(void) const {
-    // assert(noof_rows != 0 && noof_columns != 0);
+    assert(noof_rows != 0 && noof_columns != 0);
     return matrix[0].Get_q();
   }
   
   int Get_d(void) const {
-    // assert(noof_rows != 0 && noof_columns != 0);
+    assert(noof_rows != 0 && noof_columns != 0);
     return matrix[0].Get_d();
   }
   
@@ -231,5 +241,7 @@ public:
     }
   }
 };
+
+ostream& operator<<(ostream& s, const R_Ring_Matrix& a);
 
 #endif /* _FHE_R_RING_MATRIX_H_ */

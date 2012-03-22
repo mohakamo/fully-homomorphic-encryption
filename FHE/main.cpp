@@ -1,6 +1,6 @@
 #include "FHE.h"
 #include "LSS.h"
-#include "Tests.h"
+#include "Tests_SI_HE.h"
 #include "Timing.h"
 #include "Tests_ZZX_Ring_Number.h"
 #include <iostream>
@@ -179,6 +179,16 @@ public:
 
 int main (int argc, char * const argv[]) {
   std::cout << std::endl;
+  /*
+  std::cout << "(int)(-1.999) = " << (int)(-1.999) << std::endl;
+  std::cout << "(int)(-0.0002) = " << (int)(-0.0002) << std::endl;
+
+  std::cout << "(ZZ)(1 / 16) = " << to_ZZ(1 + 8) / to_ZZ(16) << std::endl;
+  std::cout << "(ZZ)(9 / 16) = " << to_ZZ(9 + 8) / to_ZZ(16) << std::endl;
+  std::cout << "(ZZ)(-1 / 16) = " << to_ZZ(-1 + 8) / to_ZZ(16) << std::endl;
+  std::cout << "(ZZ)(-9 / 16) = " << to_ZZ(-9 + 8) / to_ZZ(16) << std::endl;
+  return 0;
+  */
 
   /*
   std::cout << "Norm distr samples: ";
@@ -187,11 +197,10 @@ int main (int argc, char * const argv[]) {
   }
   std::cout << std::endl;
   */
-  /*
+
   Test tests;
   tests.Run_Tests();
   return 0;
-  */
 
   /*
   Tests_ZZX_Ring_Number tests;
@@ -200,25 +209,19 @@ int main (int argc, char * const argv[]) {
   */
 
 
+  /*
   std::cout << "check new ";
-
   long long nn = 371558400 * sizeof(R_Ring_Number);
-  
   char *a = new char [nn];
   delete [] a;
   std::cout << " success";
-
   std::cout << "\ncheck new 2 ";
   long long n = 30963200;
   R_Ring_Number *arr = new R_Ring_Number[n];
-  /*  for (long long i = 0; i < n; i++) {
-    arr[i].Initialize(to_ZZ(11), 512);
-  }
-  */
-
   delete [] arr;
   std::cout << " success\n";
   return 0;
+  */
 
   Timing_Operations timing;
   timing.TimingOperations();

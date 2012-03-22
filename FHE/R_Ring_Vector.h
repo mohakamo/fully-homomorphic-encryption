@@ -147,6 +147,14 @@ public:
     return *this * ZZ(INIT_VAL, number);
   }
 
+  R_Ring_Vector operator /(ZZ number) const {
+    R_Ring_Vector res(Get_q(), Get_d(), Get_Dimension());
+    for (int i = 0; i < Get_Dimension(); i++) {
+      res[i] = vec[i] / number;
+    }
+    return res;
+  }
+
   bool operator ==(const R_Ring_Vector &c) const {
     if (c.Get_Dimension() != Get_Dimension()) {
       return false;
@@ -216,6 +224,14 @@ public:
     }
   }
 
+  static R_Ring_Vector Generate(ZZ q, int d, int dimension, R_Ring_Number (*ksi)()) {
+    R_Ring_Vector res(q, d, dimension);
+    for (int i = 0; i < dimension; i++) {
+      res[i] = ksi();
+    }
+    return res;
+  }
+
   static R_Ring_Vector Uniform_Rand(ZZ  q, int d, int dimension, ZZ bound = ZZ(INIT_VAL, -1)) {
     R_Ring_Vector res(q, d, dimension);
     for (int i = 0; i < dimension; i++) {
@@ -247,5 +263,7 @@ public:
     std::cout << "}";
   }
 };
+
+ostream& operator<<(ostream& s, const R_Ring_Vector& a);
 
 #endif /* _R_RING_VECTOR_H_ */

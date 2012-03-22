@@ -104,7 +104,7 @@ class GLWE {
       return 1;
     }
     // TODO: to be implemented, seems like a reasonable value for noise >= 2^10
-    return 80;
+    return 2;
   }
 
   static int Choose_n(int lambda, int mu, GLWE_Type b) {
@@ -112,7 +112,7 @@ class GLWE {
       return 1;
     }
     // TODO: to be implemented, seems like a reasonable value for noise >= 2^10
-    return 80;
+    return 2;
   }
  private:
   static int Choose_N(int n, ZZ q) {
@@ -145,6 +145,7 @@ public:
     }
     int N = Choose_N(n, q);
     int d = Choose_d(lambda, mu, b);
+    Ring_Number_d = d;
     ZZ B = Choose_B(q, d, N, p);
 
     return GLWE_Params(q, d, n, N, B, p, &Noise);
@@ -178,7 +179,6 @@ public:
     std::cout << "Uniform distr gen after init" << std::endl;
     for (int i = 0; i < A_prime.Get_Noof_Rows(); i++) {
       for (int j = 0; j < A_prime.Get_Noof_Columns(); j++) {
-	std::cout << "(" << i << ", " << j << ")" << std::endl;
 	A_prime(i, j) = R_Ring_Number::Uniform_Rand(params.q, params.d);
       }
     }
