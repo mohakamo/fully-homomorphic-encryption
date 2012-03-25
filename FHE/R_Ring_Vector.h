@@ -90,8 +90,18 @@ public:
     return dimension;
   }
   
+  static R_Ring_Vector sum(const R_Ring_Vector &r1, const R_Ring_Vector &r2, bool doReduce = true) {
+    assert(r1.dimension == r2.dimension && r1.dimension != 0);
+    R_Ring_Vector res(r1.Get_q(), r1.Get_d(), r1.dimension);
+    for (int i = 0; i < r1.dimension; i++) {
+      res[i] = R_Ring_Number::sum(r1.vec[i], r2.vec[i], doReduce);
+    }
+    
+    return res;
+  }
+
   R_Ring_Vector operator + (const R_Ring_Vector &r) const {
-    // assert(dimension == r.dimension && r.dimension != 0);
+    assert(dimension == r.dimension && r.dimension != 0);
     R_Ring_Vector res(Get_q(), Get_d(), dimension);
     for (int i = 0; i < dimension; i++) {
       res[i] = vec[i] + r.vec[i];
@@ -101,7 +111,7 @@ public:
   }
 
   R_Ring_Vector operator - (const R_Ring_Vector &r) const {
-    // assert(dimension == r.dimension && r.dimension != 0);
+    assert(dimension == r.dimension && r.dimension != 0);
     R_Ring_Vector res(Get_q(), Get_d(), dimension);
     for (int i = 0; i < dimension; i++) {
       res[i] = vec[i] - r.vec[i];
@@ -115,7 +125,7 @@ public:
     }*/
   
   R_Ring_Number Dot_Product(const R_Ring_Vector &r) const {
-    // assert(dimension == r.dimension && r.dimension != 0);
+    assert(dimension == r.dimension && r.dimension != 0);
     R_Ring_Number res(Get_q(), Get_d()); // the number will be zero by default
     for (int i = 0; i < dimension; i++) {
       res += vec[i] * r.vec[i];
@@ -124,7 +134,7 @@ public:
   }
 
   R_Ring_Vector operator *(const R_Ring_Vector &v) const {
-    // assert(Get_Dimension() == v.Get_Dimension());
+    assert(Get_Dimension() == v.Get_Dimension());
     R_Ring_Vector res(Get_q(), Get_d(), Get_Dimension());
     for (int i = 0; i < Get_Dimension(); i++) {
       res.vec[i] = vec[i] * v.vec[i];
@@ -199,7 +209,7 @@ public:
   R_Ring_Matrix Transpose() const;
   
   R_Ring_Vector Tensor_Product(const R_Ring_Vector &r) const {
-    // assert(Get_Dimension() == r.Get_Dimension());
+    assert(Get_Dimension() == r.Get_Dimension());
     int new_dimension = (Get_Dimension() * (Get_Dimension() + 1)) / 2;
     R_Ring_Vector res(Get_q(), Get_d(), new_dimension);
     int index = 0;
@@ -208,7 +218,20 @@ public:
 	res[index++] = vec[i] * r.vec[j];
       }
     }
-    // assert(index == new_dimension);
+    assert(index == new_dimension);
+    return res;
+  }
+
+  R_Ring_Vector Tensor_Product2(const R_Ring_Vector &r, bool doReduction = true) const {
+    int new_dimension = Get_Dimension() * Get_Dimension();
+    R_Ring_Vector res(Get_q(), Get_d(), new_dimension);
+    int index = 0;
+    for (int i = 0; i < Get_Dimension(); i++) {
+      for (int j = 0; j < Get_Dimension(); j++) {
+	res[index++] = R_Ring_Number::mul(vec[i], r.vec[j], doReduction);
+      }
+    }
+    assert(index == new_dimension);
     return res;
   }
 

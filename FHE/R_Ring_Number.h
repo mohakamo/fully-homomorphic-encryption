@@ -54,7 +54,8 @@ public:
     assert(Ring_Number_d != 0);
     q = q_;
     vec = v_vec;
-    Reduce();
+    // NB!
+    //    Reduce();
     vec.normalize();
   }
 
@@ -63,6 +64,10 @@ public:
     q = v.q;
     vec = v.vec;
     vec.normalize();
+  }
+
+  static ZZ Fast_Reduce(ZZ n, ZZ modul) {
+    return Reduce(n, modul);
   }
   
   ZZ Fast_Reduce(ZZ n) const {
@@ -79,12 +84,16 @@ public:
     return n; */
   }
 
-  ZZX& Fast_Reduce(ZZX &v) const {
+  static ZZX& Fast_Reduce(ZZX &v, ZZ modul) {
     for (int i = 0; i < Ring_Number_d && i < v.rep.length(); i++) {
-      v.rep[i] = Fast_Reduce(v.rep[i]);
+      v.rep[i] = Fast_Reduce(v.rep[i], modul);
     }
     v.normalize();
     return v;
+  }
+
+  ZZX& Fast_Reduce(ZZX &v) const {
+    return Fast_Reduce(v, q);
   }
 
   void Fast_Reduce() {
@@ -115,12 +124,16 @@ public:
     return Reduce(n, q);
   }
 
-  ZZX& Reduce(ZZX &v) const {
+  static ZZX& Reduce(ZZX &v, ZZ modul) {
     for (int i = 0; i < Ring_Number_d && i < v.rep.length(); i++) {
-      v.rep[i] = Reduce(v.rep[i], q);
+      v.rep[i] = Reduce(v.rep[i], modul);
     }
     v.normalize();
     return v;
+  }
+
+  ZZX& Reduce(ZZX &v) const {
+    return Reduce(v, q);
   }
 
   void Reduce() {
@@ -139,6 +152,12 @@ public:
     }
     ZZX res = vec + v.vec;
     return R_Ring_Number(q, Ring_Number_d, Fast_Reduce(res));
+  }
+
+  static R_Ring_Number sum(const R_Ring_Number &v1, const R_Ring_Number &v2, bool doReduce = true) {
+    assert(v1.q == v2.q);
+    ZZX res = v1.vec + v2.vec;
+    return R_Ring_Number(v1.q, Ring_Number_d, doReduce ? Fast_Reduce(res, v1.q) : res);
   }
 
   const R_Ring_Number operator +(const ZZ &v) const {
@@ -188,9 +207,16 @@ public:
   }
 
   R_Ring_Number operator /(ZZ constant) const {
+    if (constant == 1) {
+      return *this;
+    }
     ZZX res = vec;
     for (int i = 0; i < res.rep.length(); i++) {
-      res.rep[i] = res.rep[i] / constant;
+      if (res.rep[i] < 0) {
+	res.rep[i] = (res.rep[i] + q) / constant;
+      } else {
+	res.rep[i] = res.rep[i] / constant;
+      }
     }
     return R_Ring_Number(q, Ring_Number_d, Reduce(res));
   }
@@ -214,6 +240,19 @@ public:
     return R_Ring_Number(q, Ring_Number_d, Reduce(result));
   }
   
+  static R_Ring_Number mul(const R_Ring_Number &v1, const R_Ring_Number &v2, bool doReduction = true) {
+    ZZX result = v1.vec * v2.vec;
+    
+    // reduction modulo x^d + 1
+    for (int i = Ring_Number_d - 1; i >= 0; i--) {
+      if (i < result.rep.length() && i + Ring_Number_d < result.rep.length()) {
+	result.rep[i] -= result.rep[i + Ring_Number_d];
+	result.rep[i + Ring_Number_d] = 0;
+      }
+    }
+
+    return R_Ring_Number(v1.Get_q(), Ring_Number_d, doReduction ? Reduce(result, v1.Get_q()) : result);
+  }
 
   bool operator ==(const R_Ring_Number &r) const {
     return (vec == r.vec);

@@ -7,10 +7,12 @@
 #define _SI_HE_H_
 
 #include "SI_HE_Cipher_Text.h"
+#define SQ(x) ((x) * (x))
 
 class SI_HE {
  private:  
   R_Ring_Matrix Switch_Key_Gen(const R_Ring_Vector &s_from, const R_Ring_Vector &s_to, Regev_Params &params) const {
+    assert(s_from.Get_Dimension() == SQ((params.n + 1) * NumBits(params.q)));
     int N = s_from.Get_Dimension() * NumBits(params.q);
     R_Ring_Matrix result(params.q, params.d, N, s_to.Get_Dimension() + 1);
     R_Ring_Matrix A_prime = R_Ring_Matrix::Uniform_Rand(params.q, params.d, N, params.n);
@@ -40,7 +42,13 @@ class SI_HE {
    **/
   Regev_Params Setup(int L, GLWE_Type b, ZZ p = ZZ(INIT_VAL, 2), int n = -1) {
     my_L = L;
-    return E.Setup(b, p, n);
+    Regev_Params params = E.Setup(b, p, n);
+    if (NumBits(params.q) * NumBits(params.q) * (params.n + 1) >= params.q / 4) {
+      std::cout << "log(q) * log(q) * (n + 1) = " << NumBits(params.q) * NumBits(params.q) * (params.n + 1) << std::endl;
+      std::cout << "q / 4 = " << params.q / 4 << std::endl;
+      //    assert(NumBits(params.q) * NumBits(params.q) * (params.n + 1) < params.q / 4);
+    }
+    return params;
   }
   
   SI_HE_Secret_Key_Type Secret_Key_Gen(Regev_Params &params) const {
@@ -65,12 +73,12 @@ class SI_HE {
       /* Computing sk_2 := BitDecomp((1, sk_{i - 1}) \tensor_prod BitDecomp((1, sk_{i - 1}) */
       R_Ring_Vector sk1(sk[i - 1].Get_q(), sk[i - 1].Get_d(), sk[i - 1].Get_Dimension() + 1);
       sk1[0] = 1;
-      for (int j = 1; j <= sk[i].Get_Dimension(); j++) {
+      for (int j = 1; j <= sk[i - 1].Get_Dimension(); j++) {
 	sk1[j] = sk[i - 1][j - 1];
       }
       R_Ring_Vector sk2;
       Bit_Decomposition(sk1, params.q, sk2);
-      sk2 = sk2.Tensor_Product(sk2);
+      sk2 = sk2.Tensor_Product2(sk2);
 
       evalk[i - 1] = Switch_Key_Gen(sk2, sk[i], params);
     }

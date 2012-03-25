@@ -211,6 +211,8 @@ private:
 
       if (message != decoded_message) {
 	FAIL();
+	std::cout << "Decryption failed\n";
+	std::cout << "On attempt #" << s << std::endl;
 	std::cout << "Message modul = " << modul << std::endl;
 	std::cout << "Cipher modul = " << params.q << std::endl;
 
@@ -218,34 +220,25 @@ private:
 
 	ZZ q = ksi.Get_q();
 
-	std::cout << "ksi = " << ksi << "\n";
-	
-	std::cout << "r = " << r << "\n";
-
-	ksi.Increase_Modul(ksi.Get_q() * 4);
-	r.Increase_Modul(r.Get_q() * 4);
-	R_Ring_Vector noise_by_elements = ksi * r;
-	std::cout << "noise_by_elements " << noise_by_elements << "\n";
+	//	std::cout << "ksi = " << ksi << "\n";
+	//	std::cout << "r = " << r << "\n";
 
 	R_Ring_Number noise = ksi.Dot_Product(r);
 	std::cout << "noise = " << noise << "\n";
 
-	message.Increase_Modul(noise.Get_q());
-	R_Ring_Number test_m = message + noise * ZZ(INIT_VAL, modul);
-	std::cout << "test_m = " << test_m << "\n";
+	ZZ q_half = q / 2;
+	ZZ q_quater = q / 4;
+	std::cout << "q = " << q << std::endl;
+	R_Ring_Number m = message;
+	m.Increase_Modul(q);
+	
+	R_Ring_Number th_decr = m * (q / 2) + noise;
+	std::cout << "q / 2 * message + noise = " << th_decr << std::endl;
+	std::cout << "(q / 2 * message + noise) / " << q_half << " = " << (th_decr + q_quater) / q_half << std::endl;
 
-	R_Ring_Number th_result = test_m.Clamp(q);
-	std::cout << "th_result = " << th_result << "\n";
-
-	th_result = th_result.Clamp(ZZ(INIT_VAL, modul));
-	std::cout << "th_result = " << th_result << "\n";
-
-	std::cout << "On attempt #" << s << std::endl;
-
-	std::cout << "Secret key: " << sk << "\n";
-
+	//	std::cout << "Secret key: " << sk << "\n";
+	//	std::cout << "Public key:\n" << pk << "\n";
 	std::cout << "Ciphertext: " << c << "\n";
-
 	std::cout << "Result of coding/deconging message " << message << " is " << decoded_message << "\n";
 	return false;
       }
@@ -330,65 +323,53 @@ private:
     return true;
   }
 
-  bool test_Number_Scale(void) {
-    std::cout << "test_Number_Scale ";
+  bool test_Powersof2_BitDecomposition_Tensored(void) {
+    std::cout << "test_Powersof2_BitDecomposition ";
+    ZZ q = ZZ(INIT_VAL, 7);
     int d = 1;
-    int dimension = 10;
-    ZZ q[] = {ZZ(INIT_VAL, 577), ZZ(INIT_VAL, 613), ZZ(INIT_VAL, 983)};
-    ZZ p[] = {ZZ(INIT_VAL, 571), ZZ(INIT_VAL, 607), ZZ(INIT_VAL, 977)};
-    for (int i = 0; i < 3; i++) {
-      for (int s = 0; s < 30; s++) {
-	ZZ bound = q[i] / 2 / dimension - q[i] / p[i] * d;
-	R_Ring_Vector message = R_Ring_Vector::Uniform_Rand(ZZ(INIT_VAL, 2), d, dimension);
-	R_Ring_Vector qv = R_Ring_Vector::Uniform_Rand(q[i], d, dimension, bound);
-	R_Ring_Vector pv = R_Ring_Vector(p[i], d, dimension);
-	for (int j = 0; j < dimension; j++) {
-	  pv[j] = qv[j].Scale(q[i], p[i], ZZ(INIT_VAL, 2));
-	}
-	message.Increase_Modul(p[i]);
-	R_Ring_Number result_p = message.Dot_Product(pv);
-	message.Increase_Modul(q[i]);
-	R_Ring_Number result_q = message.Dot_Product(qv);
-	if (result_q.Get_Clamped(ZZ(INIT_VAL, 2)) != result_p.Get_Clamped(ZZ(INIT_VAL, 2))) {
-	  std::cout << "attempt #" << s << std::endl;
-	  std::cout << "q = " << q[i] << " p = " << p[i] << std::endl;
-	  std::cout << "bound = " << bound << std::endl;
-	  std::cout << "qv = " << qv << "\n";
+    Ring_Number_d = 1;
+    for (int i = 0; i < 30; i++) {
+      R_Ring_Vector c = R_Ring_Vector::Uniform_Rand(q, d, 10);
+      R_Ring_Vector s = R_Ring_Vector::Uniform_Rand(q, d, 10);
+      s[0] = 1;
+      R_Ring_Vector uno(c.Get_q(), c.Get_d(), c.Get_Dimension());
+      uno[0] = 1;
+      R_Ring_Vector uno_s;
+      Powersof2(uno, q, uno_s);
+      R_Ring_Number expected = c.Dot_Product(s).Clamp(q);
+      R_Ring_Vector bits_c;
+      Powersof2(c, q, bits_c);
+      bits_c = bits_c.Tensor_Product2(uno_s);
+      R_Ring_Vector powers2_s;
+      Bit_Decomposition(s, q, powers2_s);
+      powers2_s = powers2_s.Tensor_Product2(powers2_s);
 
-	  qv.Clamp(ZZ(INIT_VAL, 2));
-	  std::cout << "qv mod 2 = " << qv << "\n";
-	  std::cout << "pv = " << pv << "\n";
+      R_Ring_Number actual = bits_c.Dot_Product(powers2_s).Clamp(q);
 
-	  pv.Clamp(ZZ(INIT_VAL, 2));
-	  std::cout << "pv mod 2 = " << pv << "\n";
-	  std::cout << "message = " << message << "\n";
-	  std::cout << "<qv, message> = " << result_q << "\n";
-	  std::cout << "<pv, message> = " << result_p << "\n";
-
-	  FAIL();
-	  return false;
-	}
-      }
+    if (expected != actual) {
+      std::cout << "c = " << c << "\n";
+      std::cout << "s = " << s << "\n";
+      std::cout << "Expected result: <c, s> = " << expected << "\n";
+      std::cout << "Actual result: <BitDecomp(c, q), Powerspf2(s, q)> = " << actual << "\n";
+	
+      FAIL();
+      std::cout << std::endl;
+      return false;
     }
-    /*
-    R_Ring_Number aa_n(ZZ(INIT_VAL, 4194301), 1), bb_n(ZZ(INIT_VAL, 262135), 1);
-    aa_n[0] = ZZ(INIT_VAL, -1386462);
-    bb_n[0] = ZZ(INIT_VAL, -86652);
-    R_Ring_Number res = aa_n.Scale(ZZ(INIT_VAL, 4194301), ZZ(INIT_VAL, 262135), ZZ(INIT_VAL, 3));
-    assert(res == bb_n); */
+    }
     PASS();
     return true;
   }
 
   bool test_SI_HE_Switch_Keys() {
-    test_SI_HE_Switch_Keys(LWE_Based);
+    return test_SI_HE_Switch_Keys(LWE_Based) &&
     test_SI_HE_Switch_Keys(RLWE_Based);
   }
 
   bool test_SI_HE_Switch_Keys(GLWE_Type type) {
     std::cout << "test_SI_HE_Switch_Keys_" << ((type == LWE_Based) ? "LWE " : "RLWE ");
     SI_HE fhe;
-    int L = 10;
+    int L = 1;
     int modul = 2;
 
     for (int s = 0; s < 10; s++) {
@@ -396,6 +377,7 @@ private:
       SI_HE_Secret_Key_Type sk = fhe.Secret_Key_Gen(params);
       SI_HE_Public_Key_Type pk = fhe.Public_Key_Gen(params, sk);
       SI_HE_Evaluation_Key_Type evalk = fhe.Evaluation_Key_Gen(params, sk, pk);
+      ZZ q = params.q;
       
       R_Ring_Number message;
       SI_HE_Cipher_Text c;
@@ -405,9 +387,62 @@ private:
       assert(c.Decrypt(params, sk) == message);
       
       for (int i = 0; i < L; i++) {
+	SI_HE_Cipher_Text prev_cipher = c;
 	c.Raise_Level();
-	if (c.Decrypt(params, sk) != message) {
+	R_Ring_Number decr = c.Decrypt(params, sk);
+	if (decr != message) {
 	  std::cout << "attempt #" << s << "\n";
+	  std::cout << "raised to level " << i + 1 << "\n";
+	  std::cout << "initial message = " << message << "\n";
+	  std::cout << "decryption = " << decr << "\n";
+	  std::cout << "prev_cipher = " << prev_cipher << "\n";
+
+	  R_Ring_Vector sk0(sk[i].Get_q(), sk[i].Get_d(), sk[i].Get_Dimension() + 1);
+	  sk0[0] = 1;
+	  for (int j = 1; j <= sk[i].Get_Dimension(); j++) {
+	    sk0[j] = sk[i][j - 1];
+	  }
+	  R_Ring_Vector sk0_bd;
+	  Bit_Decomposition(sk0, q, sk0_bd);
+	  R_Ring_Vector sk0_bd_tens = sk0_bd.Tensor_Product2(sk0_bd);
+	  R_Ring_Vector sk0_bd_pow;
+	  Powersof2(sk0_bd_tens, q, sk0_bd_pow);
+
+	  R_Ring_Vector c_pow;
+	  Powersof2(prev_cipher.Get_Cipher().first, q, c_pow);
+	  R_Ring_Vector uno(q, prev_cipher.Get_Cipher().first.Get_d(), c_pow.Get_Dimension());
+	  uno[0] = 1;
+	  R_Ring_Vector c_pow_tens = c_pow.Tensor_Product2(uno);
+	  R_Ring_Vector c_pow_bd;
+	  Bit_Decomposition(c_pow_tens, q, c_pow_bd);
+
+	  if (sk0.Dot_Product(prev_cipher.Get_Cipher().first) != c_pow_bd.Dot_Product(sk0_bd_pow)) {
+	    R_Ring_Number expected_dot_prod = sk0.Dot_Product(prev_cipher.Get_Cipher().first);
+	    std::cout << "expected = " << expected_dot_prod << "\n";
+	    std::cout << "sk0_bd.Dot_Product(c_pow) = " << sk0_bd.Dot_Product(c_pow) << "\n";
+	    std::cout << "sk0_bd_tens.Dot_Product(c_pow_tens) = " << sk0_bd_tens.Dot_Product(c_pow_tens) << "\n";
+	    std::cout << "c_pow_bd.Dot_Product(sk0_bd_pow) = " << c_pow_bd.Dot_Product(sk0_bd_pow) << "\n";
+	    assert(sk0.Dot_Product(prev_cipher.Get_Cipher().first) == c_pow_bd.Dot_Product(sk0_bd_pow));
+	  }
+
+	  R_Ring_Number m = message;
+	  m.Increase_Modul(q);
+	  std::cout << "prev_noise = " << prev_cipher.Get_Cipher().first.Dot_Product(sk0) - m * (q / 2) << "\n";
+	  std::cout << "sk[0] = " << sk0 << "\n";
+
+	  std::cout << "cipher = " << c << "\n";
+
+	  R_Ring_Vector sk1(sk[i + 1].Get_q(), sk[i + 1].Get_d(), sk[i + 1].Get_Dimension() + 1);
+	  sk1[0] = 1;
+	  for (int j = 1; j <= sk[i + 1].Get_Dimension(); j++) {
+	    sk1[j] = sk[i + 1][j - 1];
+	  }
+	  std::cout << "noise = " << c.Get_Cipher().first.Dot_Product(sk1)  - m * (q / 2) << "\n";
+	  std::cout << "sk[1] = " << sk1 << "\n";
+	  //	  std::cout << "secret key = " << sk << "\n";
+	  std::cout << "public key = \n" << pk << "\n";
+	  std::cout << "eval = \n" << evalk[0] << "\n";
+	  std::cout << "maximum amount of noise = " << (params.n + 1) * NumBits(q) << "\n";
 	  FAIL();
 	  return false;
 	}
@@ -415,10 +450,6 @@ private:
     }
 
     PASS();
-    return true;
-  }
-
-  bool test_Multiple_Refresh(GLWE_Type type) {
     return true;
   }
 
@@ -431,7 +462,8 @@ private:
 
     for (int t = 0; t < 1; t++) {
       int modul = modules[t];
-      for (int s = 0; s < 10; s++) {
+      for (int s = 0; s < 5; s++) {
+	std::cout << "*";
 	Regev_Params params = fhe.Setup(L, type, ZZ(INIT_VAL, modul));
 	SI_HE_Secret_Key_Type sk = fhe.Secret_Key_Gen(params);
 	SI_HE_Public_Key_Type pk = fhe.Public_Key_Gen(params, sk);
@@ -444,6 +476,12 @@ private:
 	  c[j] = fhe.Encrypt(params, &pk, message[j], &evalk);
 	  c[j].Add_Secret_Key_Info(&sk);
 	  assert(c[j].Decrypt(params, sk) == message[j]);
+	}
+	std::cout << message[0] << " * " << message[1];
+	if (noof_mults == 1) {
+	  std::cout << "\n";
+	} else {
+	  std::cout << " * " << message[2] << "\n";
 	}
 	
 	// first level of addition
@@ -461,6 +499,31 @@ private:
 	  std::cout << "c[0] = " << c[0] << "\n";
 	  std::cout << "c[1] = " << c[1] << "\n";
 	  std::cout << "res_c = " << res_c << "\n";
+
+	  R_Ring_Vector
+	    sk0(sk[0].Get_q(), sk[0].Get_d(), sk[0].Get_Dimension() + 1),
+	    sk1(sk[1].Get_q(), sk[1].Get_d(), sk[1].Get_Dimension() + 1);
+	  assert(sk[0].Get_Dimension() == sk[1].Get_Dimension());
+	  sk0[0] = 1;
+	  sk1[1] = 1;
+	  for (int i = 0; i < sk[0].Get_Dimension(); i++) {
+	    sk0[i + 1] = sk[0][i];
+	    sk1[i + 1] = sk[1][i];
+	  }
+
+	  ZZ q = params.q;
+	  message[0].Increase_Modul(q);
+	  message[1].Increase_Modul(q);
+
+	  R_Ring_Number noise[] = {c[0].Get_Cipher().first.Dot_Product(sk0) - message[0] * (q / 2),
+				   c[1].Get_Cipher().first.Dot_Product(sk0) - message[1] * (q / 2),
+				   res_c.Get_Cipher().first.Dot_Product(sk1)};
+
+	  std::cout << "noise[0] = " << noise[0] << "\n";
+	  std::cout << "noise[1] = " << noise[1] << "\n";
+	  std::cout << "noise_res = " << noise[2] - (message[0] * message[1]) * (q / 2) << "\n";
+	  std::cout << "noise_res = " << noise[2] - res_m_decr * (q / 2) << "\n";
+
 	  FAIL();
 	  return false;
 	}
@@ -494,8 +557,8 @@ private:
 
   bool test_SI_HE_Operations(void) {
       return
-	test_SI_HE_Operations(LWE_Based, SI_HE_Addition, 1) &&
-	test_SI_HE_Operations(LWE_Based, SI_HE_Addition, 2) &&
+	/*	test_SI_HE_Operations(LWE_Based, SI_HE_Addition, 1) &&
+		test_SI_HE_Operations(LWE_Based, SI_HE_Addition, 2) && */
 	test_SI_HE_Operations(LWE_Based, SI_HE_Multiplication, 1) &&
 	test_SI_HE_Operations(LWE_Based, SI_HE_Multiplication, 2) &&
 
@@ -519,7 +582,7 @@ private:
     params.print();
     std::cout << std::endl;
     
-    int noof_vectors = 5;
+    int noof_vectors = 3;
     SI_HE_Secret_Key_Type sk = fhe.Secret_Key_Gen(params);
     SI_HE_Public_Key_Type pk = fhe.Public_Key_Gen(params, sk);
     SI_HE_Evaluation_Key_Type evalk = fhe.Evaluation_Key_Gen(params, sk, pk);
@@ -563,47 +626,33 @@ private:
   bool test_LSS(void) {
     std::cout << "test_LSS ";
 
-    for (int d = 1; d < 4; d++) {
-      for (int s = 0; s < 30; s++) {
+    for (int s = 0; s < 30; s++) {
     
-    int noof_vectors = 2;
-    int message_modul_bound = 10;
-    ZZ modul;
-    modul = 2 * noof_vectors * noof_vectors * message_modul_bound * message_modul_bound * message_modul_bound  + 1;
-    while (ProbPrime(modul)) {
-      modul++;
-    }
+      int noof_vectors = 2;
+      ZZ modul = to_ZZ(29);
 
-    std::vector<ZZ *> array_m_x(noof_vectors), array_m_y(noof_vectors);
-    for (int j = 0; j < noof_vectors; j++) {
-      array_m_x[j] = new ZZ [d];
-      array_m_x[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), ZZ(INIT_VAL, message_modul_bound));
-      array_m_y[j] = new ZZ [d];
-      array_m_y[j][0] = R_Ring_Number::Clamp(ZZ(INIT_VAL, rand()), ZZ(INIT_VAL, message_modul_bound));
-    }
-    std::vector<R_Ring_Number> messages_x, messages_y;
-    for (int j = 0; j < noof_vectors; j++) {
-      messages_x.push_back(R_Ring_Number(modul, d, array_m_x[j]));
-      messages_y.push_back(R_Ring_Number(modul, d, array_m_y[j]));
-    }
-
-    for (int j = 0; j < noof_vectors; j++) {
-      delete [] array_m_x[j];
-      delete [] array_m_y[j];
-    }
-
-    R_Ring_Number den;
+      std::vector<R_Ring_Number> messages_x, messages_y;
+      for (int j = 0; j < noof_vectors; j++) {
+	R_Ring_Number mx = R_Ring_Number::Uniform_Rand(modul, Ring_Number_d);
+	R_Ring_Number my = R_Ring_Number::Uniform_Rand(modul, Ring_Number_d);
+	
+	messages_x.push_back(mx);
+	messages_y.push_back(my);
+      }
       
-    Pair<R_Ring_Number, R_Ring_Number> res = Compute_LSS<R_Ring_Number>(messages_x, messages_y, &den);
-    if (res.first * messages_x[0] + res.second != messages_y[0] * den ||
-	res.first * messages_x[1] + res.second != messages_y[1] * den) {
-      std::cout << "d = " << d << ", s = " << s << ", message modul = " << modul << std::endl;
-      std::cout << "(x0, y0) = (" << messages_x[0] << ", " << messages_y[0] << ")" << std::endl;
-      std::cout << "(x1, y1) = (" << messages_x[1] << ", " << messages_y[1] << ")" << std::endl;
-      std::cout << "(a, b) = (" << res.first << ", " << res.second << ")" << std::endl;
-      FAIL();
-      return false;
-    }}}
+      R_Ring_Number den;
+
+      Pair<R_Ring_Number, R_Ring_Number> res = Compute_LSS<R_Ring_Number>(messages_x, messages_y, &den);
+      if (res.first * messages_x[0] + res.second != messages_y[0] * den ||
+	  res.first * messages_x[1] + res.second != messages_y[1] * den) {
+	std::cout << "d = " << Ring_Number_d << ", s = " << s << ", message modul = " << modul << std::endl;
+	std::cout << "(x0, y0) = (" << messages_x[0] << ", " << messages_y[0] << ")" << std::endl;
+	std::cout << "(x1, y1) = (" << messages_x[1] << ", " << messages_y[1] << ")" << std::endl;
+	std::cout << "(a, b) = (" << res.first << ", " << res.second << ")" << std::endl;
+	FAIL();
+	return false;
+      }
+    }
     PASS();
     return true;
   }
@@ -627,14 +676,11 @@ public:
 	!test_SI_HE_for_LWE() ||
 	!test_SI_HE_for_RLWE() ||
 	!test_Powersof2_BitDecomposition() ||
-	!test_Number_Scale() ||
+	!test_Powersof2_BitDecomposition_Tensored() ||
 	!test_SI_HE_Switch_Keys() ||
-
-	!test_Multiple_Refresh(LWE_Based) ||
-	!test_Multiple_Refresh(RLWE_Based) ||
 	!test_SI_HE_Operations() ||
-	!test_SI_HE_LSS() ||
-	!test_LSS()) {
+	!test_LSS() ||
+	!test_SI_HE_LSS()) {
       std::cout << "Overall tests FAILED" << std::endl;
     } else {
       std::cout << "Overall tests PASSED" << std::endl;

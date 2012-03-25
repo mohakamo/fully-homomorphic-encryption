@@ -68,7 +68,7 @@ class Regev {
   // q is chosen to be prime of length mu such that q = 1 (mod r), where r is the message module
   static ZZ Choose_q(int n) {
     // TODO:
-    return to_ZZ(32);//to_ZZ(1) << (n / 2);
+    return to_ZZ(1) << 20;
   }
  public:
   static int Choose_d(GLWE_Type b) {
@@ -83,7 +83,6 @@ class Regev {
     if (b == RLWE_Based) {
       return 1;
     }
-    // TODO: to be implemented, seems like a reasonable value for noise >= 2^10
     return 2;
   }
  private:
@@ -94,8 +93,9 @@ class Regev {
 
   // just return the uniform noise that is bounded by B (although should be gaussian - not uniform for security)
   static R_Ring_Number Noise(ZZ q, int d, int deviation = 8) {
-    R_Ring_Number res(q, d);
+    // R_Ring_Number res(q, d);
     //    R_Ring_Number res = NormDistr::sample(q, d, deviation);
+    R_Ring_Number res = R_Ring_Number::Uniform_Rand(to_ZZ(2), d);
     res.Increase_Modul(q);
     return res;
   }
@@ -116,13 +116,19 @@ public:
     Ring_Number_d = d;
     int deviation = 8;
 
+    if ((n + 1) * NumBits(q) * 2 >= q / 4) {
+      std::cout << "(n + 1) * NumBits(q) * 2 = " << (n + 1) * NumBits(q) * 2 << std::endl;
+      std::cout << "q / 4 = " << q / 4 << std::endl;
+      //      assert((n + 1) * NumBits(q) * 2 < q / 4);
+    }
+
     return Regev_Params(q, d, n, N, deviation, p, &Noise);
   }
 	
   R_Ring_Vector Secret_Key_Gen(Regev_Params &params) const {
     R_Ring_Vector sk(params.q, params.d, params.n);
     for (int i = 0; i < params.n; i++) {
-      sk[i] = params.ksi();
+      sk[i] = R_Ring_Number::Uniform_Rand(params.q, params.d);//params.ksi();
     }
     return sk; 
   }
@@ -162,6 +168,7 @@ public:
 
     R_Ring_Vector m_prime(params.q, params.d, params.n + 1);
     m_prime[0] = R_Ring_Number(params.q, params.d, m.vec) * (params.q / 2);
+    //    std::cout << "m_prime = " << m_prime << std::endl;
 
     R_Ring_Vector c(params.q, params.d, params.n + 1);
     c = m_prime + (pk.Get_Transpose() * r);
@@ -175,7 +182,7 @@ public:
   static R_Ring_Number Decrypt(const Regev_Params &params, const R_Ring_Vector &sk, const R_Ring_Vector &c) {
     R_Ring_Vector sk_prime(sk.Get_q(), sk.Get_d(), sk.Get_Dimension() + 1);
     sk_prime[0] = 1;
-    for (int i = 1; i < sk.Get_Dimension(); i++) {
+    for (int i = 1; i <= sk.Get_Dimension(); i++) {
       sk_prime[i] = sk[i - 1];
     }
     // Assume that division in NTL rounds down
@@ -187,9 +194,7 @@ public:
       rounding_add_constant[i] = q_quater;
     }
     //        std::cout << "dot_product = " << dot_product << std::endl;
-    dot_product = (dot_product + q_quater) / q_half;
-    //        std::cout << "q_half = " << q_half << std::endl;
-    //        std::cout << "q_quater = " << q_quater << std::endl;
+    dot_product = (dot_product + rounding_add_constant) / q_half;
     //        std::cout << "dot_product / q_half = " << dot_product << std::endl;
 
     return dot_product.Clamp(params.p);

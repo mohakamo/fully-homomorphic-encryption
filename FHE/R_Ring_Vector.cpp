@@ -14,7 +14,7 @@ R_Ring_Matrix R_Ring_Vector::Transpose() const {
 }
 
 R_Ring_Vector R_Ring_Vector::operator *(const R_Ring_Matrix &m) const {
-    // assert(m.Get_Noof_Rows() == dimension);
+  assert(m.Get_Noof_Rows() == dimension);
   R_Ring_Vector res_v(Get_q(), Get_d(), m.Get_Noof_Columns());
     
   for (int i = 0; i < m.Get_Noof_Columns(); i++) {
