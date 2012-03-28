@@ -76,14 +76,14 @@ class Regev {
       return 1;
     }
     // TODO: to be implemented, seems like a reasonable value for noise >= 2^10
-    return 2;
+    return 8;
   }
 
   static int Choose_n(GLWE_Type b) {
     if (b == RLWE_Based) {
       return 1;
     }
-    return 2;
+    return 8;
   }
  private:
   static int Choose_N(int n, ZZ q) {
