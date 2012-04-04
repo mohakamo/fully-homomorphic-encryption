@@ -76,7 +76,7 @@ class Regev {
       return 1;
     }
     // TODO: to be implemented, seems like a reasonable value for noise >= 2^10
-    return 8;
+    return 512;
   }
 
   static int Choose_n(GLWE_Type b) {
@@ -102,16 +102,17 @@ class Regev {
 
 public:	
   Regev_Params Setup(GLWE_Type b, ZZ p = ZZ(INIT_VAL, 2), int n_opt = -1) const {
-    int n;
+    int n = 1;
     assert(p == to_ZZ(2));
-    if (n_opt != -1) {
-      n = n_opt;
+    int d = 1;
+    if (b == RLWE_Based) {
+      d = (n_opt == -1) ? Choose_d(b) : n_opt;
     } else {
-      n = Choose_n(b);
+      n = (n_opt == -1) ? Choose_n(b) : n_opt;
     }
     ZZ q = Choose_q(n);
     int N = Choose_N(n, q);
-    int d = Choose_d(b);
+    //    int d = Choose_d(b);
     // NB! Setting global field
     Ring_Number_d = d;
     int deviation = 8;

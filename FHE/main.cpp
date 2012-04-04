@@ -26,7 +26,7 @@ public:
    * @param dimension - vector dimension
    **/
   void Setup(int dimension) {
-    type = LWE_Based;
+    type = RLWE_Based;
     ZZ modul = to_ZZ(2);
     Regev_Params temp_params = fhe.Setup(L, type, modul);
     params = temp_params;
@@ -133,6 +133,28 @@ int main (int argc, char * const argv[]) {
   R_Ring_Number *arr = new R_Ring_Number[n];
   delete [] arr;
   std::cout << " success\n";
+  return 0;
+  */
+
+  /*
+  SI_HE fhe;
+  clock_t start;
+  
+  GLWE_Type type = RLWE_Based;
+  for (int i = 3; i < 10; i++) {
+    int n = 1 << i;
+    Regev_Params params = fhe.Setup(2, type, ZZ(INIT_VAL, 2), n);
+    start = clock();
+    SI_HE_Secret_Key_Type sk = fhe.Secret_Key_Gen(params);
+    SI_HE_Public_Key_Type pk = fhe.Public_Key_Gen(params, sk);
+    SI_HE_Evaluation_Key_Type evalk = fhe.Evaluation_Key_Gen(params, sk, pk);
+    std::cout << "n = " << n << ", time = " << (clock() - start) / (double)CLOCKS_PER_SEC;
+    std::cout << "|sk| = " << sk.size() * sk[0].Get_Dimension() << std::endl;
+    std::cout << "|pk| = " << pk.Get_Noof_Columns() * pk.Get_Noof_Rows() << std::endl;
+    std::cout << "|evalk| = " << evalk.size() * evalk[0].Get_Noof_Columns() * evalk[0].Get_Noof_Rows() << std::endl;
+    std::cout << "****************************" << std::endl;
+  }
+
   return 0;
   */
 
