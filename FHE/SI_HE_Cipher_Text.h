@@ -135,6 +135,10 @@ class SI_HE_Cipher_Text {
     my_sk = sk;
   }
  public:
+	long long getSizeInBytes(void) {
+		return my_cipher.Get_Dimension() * NumBits(my_cipher[0].Get_q()) * my_cipher[0].Get_d() / 8;
+	}
+
   friend ostream& operator<<(ostream& s, const SI_HE_Cipher_Text& a);
 };
 

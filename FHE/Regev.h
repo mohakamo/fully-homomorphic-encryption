@@ -68,7 +68,7 @@ class Regev {
   // q is chosen to be prime of length mu such that q = 1 (mod r), where r is the message module
   static ZZ Choose_q(int n) {
     // TODO:
-    return to_ZZ(1) << 20;
+    return to_ZZ(1) << 58;
   }
  public:
   static int Choose_d(GLWE_Type b) {
@@ -76,7 +76,7 @@ class Regev {
       return 1;
     }
     // TODO: to be implemented, seems like a reasonable value for noise >= 2^10
-    return 512;
+    return 8;
   }
 
   static int Choose_n(GLWE_Type b) {
@@ -94,8 +94,8 @@ class Regev {
   // just return the uniform noise that is bounded by B (although should be gaussian - not uniform for security)
   static R_Ring_Number Noise(ZZ q, int d, int deviation = 8) {
     // R_Ring_Number res(q, d);
-    //    R_Ring_Number res = NormDistr::sample(q, d, deviation);
-    R_Ring_Number res = R_Ring_Number::Uniform_Rand(to_ZZ(2), d);
+    R_Ring_Number res = NormDistr::sample(q, d, deviation);
+    // R_Ring_Number res = R_Ring_Number::Uniform_Rand(to_ZZ(2), d);
     res.Increase_Modul(q);
     return res;
   }
@@ -103,7 +103,8 @@ class Regev {
 public:	
   Regev_Params Setup(GLWE_Type b, ZZ p = ZZ(INIT_VAL, 2), int n_opt = -1) const {
     int n = 1;
-    assert(p == to_ZZ(2));
+    // allow any message modul that is a power of 2
+    //    assert(p == to_ZZ(2));
     int d = 1;
     if (b == RLWE_Based) {
       d = (n_opt == -1) ? Choose_d(b) : n_opt;
@@ -168,7 +169,7 @@ public:
     // R_Ring_Vector r(params.q, params.d, params.N);
 
     R_Ring_Vector m_prime(params.q, params.d, params.n + 1);
-    m_prime[0] = R_Ring_Number(params.q, params.d, m.vec) * (params.q / 2);
+    m_prime[0] = R_Ring_Number(params.q, params.d, m.vec) * (params.q / params.p);
     //    std::cout << "m_prime = " << m_prime << std::endl;
 
     R_Ring_Vector c(params.q, params.d, params.n + 1);
@@ -189,8 +190,8 @@ public:
     // Assume that division in NTL rounds down
     R_Ring_Number dot_product = (c.Dot_Product(sk_prime));
     R_Ring_Number rounding_add_constant(dot_product.Get_q(), dot_product.Get_d());
-    ZZ q_quater = params.q / 4;
-    ZZ q_half = params.q / 2;
+    ZZ q_quater = params.q / (params.p * 2);
+    ZZ q_half = params.q / params.p;
     for (int i = 0; i < dot_product.Get_d(); i++) {
       rounding_add_constant[i] = q_quater;
     }

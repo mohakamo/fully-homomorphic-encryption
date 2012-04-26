@@ -26,8 +26,8 @@ SI_HE_Cipher_Text SI_HE_Cipher_Text::Mult(SI_HE_Cipher_Text &c1, SI_HE_Cipher_Te
 
   // TODO: to compute all of this once - not on every mult
   ZZ q = c1.my_cipher.Get_q();
-  ZZ q_half = q / 2;
-  ZZ q_quater = q / 4;
+  ZZ q_half = q / c1.my_p;
+  ZZ q_quater = q / (c1.my_p * 2);
   int tens_dimension = c1_powers.Get_Dimension();
 
   /*  if (c1_powers.Get_q() != q_quater_v.Get_q()) {
@@ -35,7 +35,7 @@ SI_HE_Cipher_Text SI_HE_Cipher_Text::Mult(SI_HE_Cipher_Text &c1, SI_HE_Cipher_Te
     std::cout << "q_quater_v.Get_q() =  " << q_quater_v.Get_q() << std::endl;
     }*/
 
-  //  c1_powers = (c1_powers + q_quater_v) / q_half;
+  // c1_powers = (c1_powers + q_quater_v) / q_half;
   // NB!
   // get tensor product without reduction (second parameter - false)
   R_Ring_Vector tens = c1_powers.Tensor_Product2(c2_powers, false);
@@ -60,10 +60,10 @@ SI_HE_Cipher_Text SI_HE_Cipher_Text::Mult(SI_HE_Cipher_Text &c1, SI_HE_Cipher_Te
   Bit_Decomposition(sk, sk.Get_q(), sk_bd);
   sk_bd = sk_bd.Tensor_Product2(sk_bd);
 
-  std::cout << "noise1 = " << c1.my_cipher.Dot_Product(sk) << "\n";
-  std::cout << "noise2 = " << c2.my_cipher.Dot_Product(sk) << "\n";
-  std::cout << "noise after tensoring = " << tens.Dot_Product(sk_bd) << "\n";
-  std::cout << "noise after division = " << c_mult.Dot_Product(sk_bd) << "\n";
+  //  std::cout << "noise1 = " << c1.my_cipher.Dot_Product(sk) << "\n";
+  //  std::cout << "noise2 = " << c2.my_cipher.Dot_Product(sk) << "\n";
+  //  std::cout << "noise after tensoring = " << tens.Dot_Product(sk_bd) << "\n";
+  //  std::cout << "noise after division = " << c_mult.Dot_Product(sk_bd) << "\n";
   /*** END OF DEBUG CODE ***/
 
   R_Ring_Vector new_cipher = Switch_Key((*c1.my_eval)[c1.my_level], c_mult);
@@ -74,7 +74,7 @@ SI_HE_Cipher_Text SI_HE_Cipher_Text::Mult(SI_HE_Cipher_Text &c1, SI_HE_Cipher_Te
   for (int i = 0; i < new_sk_prime.Get_Dimension(); i++) {
     new_sk[i + 1] = new_sk_prime[i];
   }
-  std::cout << "noise after switch keys = " << new_cipher.Dot_Product(new_sk) << "\n";
+  //  std::cout << "noise after switch keys = " << new_cipher.Dot_Product(new_sk) << "\n";
   /*** END OF DEBUG CODE ***/
   return SI_HE_Cipher_Text(new_cipher,
 			   c1.my_level + 1, c1.my_pk, c1.my_eval, c1.my_p, ZZ::zero(), c1.my_sk);

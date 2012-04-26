@@ -194,9 +194,9 @@ private:
 
   bool test_Regev(GLWE_Type type) {
     Regev glwe;
-    int moduls[] = {2, 3, 5, 7, 11, 13, 17, 19, 23};
+    int moduls[] = {2, 4, 8, 16, 32};
 
-    for (int ii = 0; ii < 1; ii++) {
+    for (int ii = 0; ii < 5; ii++) {
     for (int s = 0; s < 30; s++) {
       int modul = moduls[ii];
       Regev_Params params = glwe.Setup(type, ZZ(INIT_VAL, modul));
@@ -226,13 +226,13 @@ private:
 	R_Ring_Number noise = ksi.Dot_Product(r);
 	std::cout << "noise = " << noise << "\n";
 
-	ZZ q_half = q / 2;
-	ZZ q_quater = q / 4;
+	ZZ q_half = q / modul;
+	ZZ q_quater = q / (modul * 2);
 	std::cout << "q = " << q << std::endl;
 	R_Ring_Number m = message;
 	m.Increase_Modul(q);
 	
-	R_Ring_Number th_decr = m * (q / 2) + noise;
+	R_Ring_Number th_decr = m * (q / modul) + noise;
 	std::cout << "q / 2 * message + noise = " << th_decr << std::endl;
 	std::cout << "(q / 2 * message + noise) / " << q_half << " = " << (th_decr + q_quater) / q_half << std::endl;
 
@@ -256,11 +256,13 @@ private:
   bool test_SI_HE(GLWE_Type type) {
     SI_HE fhe;
     
-    int modules[] = {2};//97, 101, 103, 107, 109};
-    Regev_Params params = fhe.Setup(2, type, ZZ(INIT_VAL, modules[0]));
-    for (int mi = 0; mi < 1; mi++) {
+    int modules[] = {2, 4, 8, 16, 32};
+    for (int mi = 0; mi < 5; mi++) {
+      Regev_Params params = fhe.Setup(2, type, ZZ(INIT_VAL, modules[mi]));
       ZZ modul = ZZ(INIT_VAL, modules[mi]);
+      std::cout << "." << std::flush;
     for (int s = 0; s < 10; s++) {
+      std::cout << "*" << std::flush;
       //      std::cout << s << std::endl;
       SI_HE_Secret_Key_Type sk = fhe.Secret_Key_Gen(params);
       SI_HE_Public_Key_Type pk = fhe.Public_Key_Gen(params, sk);
@@ -362,7 +364,7 @@ private:
   }
 
   bool test_SI_HE_Switch_Keys() {
-    return test_SI_HE_Switch_Keys(LWE_Based) &&
+    return /*test_SI_HE_Switch_Keys(LWE_Based) && */
     test_SI_HE_Switch_Keys(RLWE_Based);
   }
 
@@ -370,9 +372,14 @@ private:
     std::cout << "test_SI_HE_Switch_Keys_" << ((type == LWE_Based) ? "LWE " : "RLWE ");
     SI_HE fhe;
     int L = 1;
-    int modul = 2;
+    int modules[] = {2, 4, 8, 16, 32};
+    for (int mi = 0; mi < 5; mi++) {
+      //    int modul = 2;
+      std::cout << "." << std::flush;
+      int modul = modules[mi];
 
     for (int s = 0; s < 10; s++) {
+      std::cout << "*" << std::flush;
       Regev_Params params = fhe.Setup(L, type, ZZ(INIT_VAL, modul));
       SI_HE_Secret_Key_Type sk = fhe.Secret_Key_Gen(params);
       SI_HE_Public_Key_Type pk = fhe.Public_Key_Gen(params, sk);
@@ -381,7 +388,7 @@ private:
       
       R_Ring_Number message;
       SI_HE_Cipher_Text c;
-      message = R_Ring_Number::Uniform_Rand(to_ZZ(2), params.d);
+      message = R_Ring_Number::Uniform_Rand(to_ZZ(modul), params.d);
       c = fhe.Encrypt(params, &pk, message, &evalk);
       c.Add_Secret_Key_Info(&sk);
       assert(c.Decrypt(params, sk) == message);
@@ -448,6 +455,7 @@ private:
 	}
       }
     }
+    }
 
     PASS();
     return true;
@@ -457,13 +465,14 @@ private:
     assert(noof_mults == 1 || noof_mults == 2);
     std::cout << "test_" << noof_mults << "_" << ((operation_type == SI_HE_Addition) ? "Add_" : "Mult_") << ((type == LWE_Based) ? "LWE " : "RLWE ");
     SI_HE fhe;
-    int modules[] = {2, 97, 7, 11, 3, 5};
+    int modules[] = {2, 4, 8, 16, 32};
     int L = noof_mults;
 
-    for (int t = 0; t < 1; t++) {
+    for (int t = 0; t < 3; t++) {
+      std::cout << "." << std::flush;
       int modul = modules[t];
       for (int s = 0; s < 5; s++) {
-	std::cout << "*";
+	std::cout << "*" << std::flush;
 	Regev_Params params = fhe.Setup(L, type, ZZ(INIT_VAL, modul));
 	SI_HE_Secret_Key_Type sk = fhe.Secret_Key_Gen(params);
 	SI_HE_Public_Key_Type pk = fhe.Public_Key_Gen(params, sk);
@@ -472,7 +481,7 @@ private:
 	R_Ring_Number message[3];
 	SI_HE_Cipher_Text c[3];
 	for (int j = 0; j < 3; j++) {
-	  message[j] = R_Ring_Number::Uniform_Rand(to_ZZ(2), params.d);
+	  message[j] = R_Ring_Number::Uniform_Rand(to_ZZ(modul), params.d);
 	  c[j] = fhe.Encrypt(params, &pk, message[j], &evalk);
 	  c[j].Add_Secret_Key_Info(&sk);
 	  assert(c[j].Decrypt(params, sk) == message[j]);
@@ -492,6 +501,7 @@ private:
 	if (res_m_decr != res_m) {
 	  std::cout << "One " << (operation_type == SI_HE_Addition ? "addition" : "multiplication") << " failed to decrypt" << std::endl;
 	  std::cout << "attempt #" << s << "\n";
+	  std::cout << "message module = " << modul << "\n";
 	  std::cout << "message[0] = " << message[0] << "\n";
 	  std::cout << "message[1] = " << message[1] << "\n";
 	  std::cout << "(message[0] o message[1]).Decrypt() = " << res_m_decr << "\n";
@@ -537,6 +547,7 @@ private:
 	if (res_m_decr2 != res_m2) {
 	  std::cout << "Fail on second " << (operation_type == SI_HE_Addition ? "add" : "mult") << std::endl;
 	  std::cout << "Attempt #" << s << std::endl;
+	  std::cout << "Message modul = " << modul << std::endl;
 
 	  std::cout << "(m1 o m2) o m3 = (" << message[0] << " * " << message[1] << ") * " << message[2] << std::endl;
 	  std::cout << "(c1 o c2) o c3 = (" << c[0] << " * " << c[1] << ") * " << c[2] << std::endl;
@@ -558,21 +569,21 @@ private:
   bool test_SI_HE_Operations(void) {
       return
 	/*	test_SI_HE_Operations(LWE_Based, SI_HE_Addition, 1) &&
-		test_SI_HE_Operations(LWE_Based, SI_HE_Addition, 2) && */
+		test_SI_HE_Operations(LWE_Based, SI_HE_Addition, 2) && 
 	test_SI_HE_Operations(LWE_Based, SI_HE_Multiplication, 1) &&
-	test_SI_HE_Operations(LWE_Based, SI_HE_Multiplication, 2) &&
+	test_SI_HE_Operations(LWE_Based, SI_HE_Multiplication, 2) && */
 
-	test_SI_HE_Operations(RLWE_Based, SI_HE_Addition, 1) &&
-	test_SI_HE_Operations(RLWE_Based, SI_HE_Addition, 2) &&
-	test_SI_HE_Operations(RLWE_Based, SI_HE_Multiplication, 1) &&
+	//	test_SI_HE_Operations(RLWE_Based, SI_HE_Addition, 1) &&
+	//	test_SI_HE_Operations(RLWE_Based, SI_HE_Addition, 2) &&
+	//	test_SI_HE_Operations(RLWE_Based, SI_HE_Multiplication, 1) &&
 	test_SI_HE_Operations(RLWE_Based, SI_HE_Multiplication, 2);
   }
 
   bool test_SI_HE_LSS() {
     std::cout << "test_SI_HE_LSS ";
     
-    GLWE_Type type = LWE_Based; // RLWE_Based
-    int message_modul = 2;
+    GLWE_Type type = RLWE_Based; // only!
+    int message_modul = 4;
     ZZ modul;
     modul = message_modul;
     SI_HE fhe;
@@ -629,7 +640,7 @@ private:
     for (int s = 0; s < 30; s++) {
     
       int noof_vectors = 2;
-      ZZ modul = to_ZZ(29);
+      ZZ modul = to_ZZ(4);
 
       std::vector<R_Ring_Number> messages_x, messages_y;
       for (int j = 0; j < noof_vectors; j++) {
@@ -662,7 +673,7 @@ public:
     Ring_Number_d = 4;
   }
   void Run_Tests() {
-    if (!test_Zero_Number() ||
+    if (/*!test_Zero_Number() ||
 	!test_Nonzero_Number() ||
 	!test_Number_Addition() ||
 	!test_Number_Multiplication() ||
@@ -670,15 +681,16 @@ public:
 	!test_Number_Reduction() ||
 	!test_Number_Rounding() ||
 
-	!test_Regev_for_LWE() ||
+	//	!test_Regev_for_LWE() ||
 	!test_Regev_for_RLWE() ||
 
-	!test_SI_HE_for_LWE() ||
+	//	!test_SI_HE_for_LWE() ||
 	!test_SI_HE_for_RLWE() ||
 	!test_Powersof2_BitDecomposition() ||
 	!test_Powersof2_BitDecomposition_Tensored() ||
 	!test_SI_HE_Switch_Keys() ||
 	!test_SI_HE_Operations() ||
+	*/
 	!test_LSS() ||
 	!test_SI_HE_LSS()) {
       std::cout << "Overall tests FAILED" << std::endl;

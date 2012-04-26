@@ -43,10 +43,10 @@ class SI_HE {
   Regev_Params Setup(int L, GLWE_Type b, ZZ p = ZZ(INIT_VAL, 2), int n = -1) {
     my_L = L;
     Regev_Params params = E.Setup(b, p, n);
-    if (NumBits(params.q) * NumBits(params.q) * (params.n + 1) >= params.q / 4) {
+    if (NumBits(params.q) * NumBits(params.q) * (params.n + 1) >= params.q / (p * 2)) {
       std::cout << "log(q) * log(q) * (n + 1) = " << NumBits(params.q) * NumBits(params.q) * (params.n + 1) << std::endl;
-      std::cout << "q / 4 = " << params.q / 4 << std::endl;
-      //    assert(NumBits(params.q) * NumBits(params.q) * (params.n + 1) < params.q / 4);
+      std::cout << "q / message_modul / 2 = " << params.q / (p * 2) << std::endl;
+      assert(false);
     }
     return params;
   }
@@ -74,7 +74,7 @@ class SI_HE {
       R_Ring_Vector sk1(sk[i - 1].Get_q(), sk[i - 1].Get_d(), sk[i - 1].Get_Dimension() + 1);
       sk1[0] = 1;
       for (int j = 1; j <= sk[i - 1].Get_Dimension(); j++) {
-	sk1[j] = sk[i - 1][j - 1];
+				sk1[j] = sk[i - 1][j - 1];
       }
       R_Ring_Vector sk2;
       Bit_Decomposition(sk1, params.q, sk2);

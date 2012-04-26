@@ -2,7 +2,6 @@
 #define _LSS_H_
 
 #include <vector>
-#include "FHE.h"
 
 template<class T>
 void Sum_Up(std::vector<T> &x) { // summing up in a way to get logarithmic depth
